@@ -32,6 +32,12 @@ export interface Agent {
   workspace: string;
 }
 
+/**
+ * Whether a word can be handed to OpenClaw as an agent id: a letter or a digit first, then letters, digits, `_` and
+ * `-`, 64 characters at most. Never something OpenClaw would read as an option or as a path.
+ */
+export const isAgentID = (s: string) => /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(s);
+
 /** The last lines OpenClaw printed, for a refusal: what it said, cut short. */
 function said(r: RunResult): string {
   const text = (r.stderr.trim() || r.stdout.trim()).split("\n").slice(-3).join(" ").slice(0, 400);

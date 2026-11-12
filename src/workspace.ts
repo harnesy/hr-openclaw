@@ -6,6 +6,7 @@ import { dirname, join, resolve, sep } from "node:path";
 import { isID, isVersion } from "./catalog/grammar.ts";
 import { Refusal } from "./catalog/types.ts";
 import { hexSum } from "./catalog/verify.ts";
+import { isAgentID } from "./openclaw.ts";
 import { workspaceFolder } from "./render/openclaw.ts";
 import { checkTreePath, type Tree } from "./render/tree.ts";
 
@@ -117,7 +118,8 @@ export function writeRecord(root: string, rec: HireRecord): void {
 
 /**
  * Reads the record of a workspace; null when the plugin wrote none. The file is data like any other in a workspace an
- * agent works in: its names are checked again before they are used.
+ * agent works in: its names are checked again before they are used, and its agent is handed to OpenClaw only when it
+ * is an agent id.
  */
 export function readRecord(root: string): HireRecord | null {
   if (currentSum(root, RECORD_FILE) === null) return null;
@@ -129,7 +131,7 @@ export function readRecord(root: string): HireRecord | null {
     throw bad;
   }
   if (typeof rec !== "object" || rec === null || rec.v !== 1 || typeof rec.id !== "string" || !isID(rec.id) || typeof rec.version !== "string" ||
-    !isVersion(rec.version) || typeof rec.agent !== "string" || typeof rec.files !== "object" || rec.files === null) throw bad;
+    !isVersion(rec.version) || typeof rec.agent !== "string" || !isAgentID(rec.agent) || typeof rec.files !== "object" || rec.files === null) throw bad;
   for (const [rel, sum] of Object.entries(rec.files)) {
     if (typeof sum !== "string" || !/^[0-9a-f]{64}$/.test(sum) || !isOurs(rel)) throw bad;
   }

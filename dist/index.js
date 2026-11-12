@@ -1445,6 +1445,65 @@ async function confirm(cx, yes, question) {
 // src/workspace.ts
 import { lstatSync, mkdirSync as mkdirSync2, readdirSync, readFileSync as readFileSync2, renameSync as renameSync2, rmdirSync, rmSync, writeFileSync as writeFileSync2 } from "node:fs";
 import { dirname as dirname2, join as join2, resolve, sep } from "node:path";
+
+// src/openclaw.ts
+import { spawn } from "node:child_process";
+function spawnRunner(argv = process.argv, execPath = process.execPath) {
+  return (args) => new Promise((resolve3) => {
+    const cli2 = argv[1];
+    if (!cli2) return resolve3({ code: 1, stdout: "", stderr: "the openclaw program that is running was not found" });
+    const child = spawn(execPath, [cli2, ...args], { shell: false, stdio: ["ignore", "pipe", "pipe"] });
+    let stdout = "", stderr = "";
+    child.stdout.on("data", (d) => {
+      stdout += d.toString("utf8");
+    });
+    child.stderr.on("data", (d) => {
+      stderr += d.toString("utf8");
+    });
+    child.on("error", (err2) => resolve3({ code: 1, stdout, stderr: stderr + err2.message }));
+    child.on("close", (code) => resolve3({ code: code ?? 1, stdout, stderr }));
+  });
+}
+var isAgentID = (s) => /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(s);
+function said(r) {
+  const text3 = (r.stderr.trim() || r.stdout.trim()).split("\n").slice(-3).join(" ").slice(0, 400);
+  return text3 === "" ? `exit code ${r.code}` : text3;
+}
+function json(stdout) {
+  for (let at = stdout.search(/^[[{]/m); at >= 0; ) {
+    try {
+      return JSON.parse(stdout.slice(at));
+    } catch {
+      const next = stdout.slice(at + 1).search(/^[[{]/m);
+      at = next < 0 ? -1 : at + 1 + next;
+    }
+  }
+  return void 0;
+}
+async function listAgents(run) {
+  const r = await run(["agents", "list", "--json"]);
+  const list2 = r.code === 0 ? json(r.stdout) : void 0;
+  if (!Array.isArray(list2)) throw new Refusal(`OpenClaw did not list its agents (${said(r)})`);
+  return list2.flatMap((a) => {
+    const o = a ?? {};
+    return typeof o["id"] === "string" ? [{ id: o["id"], workspace: typeof o["workspace"] === "string" ? o["workspace"] : "" }] : [];
+  });
+}
+async function addAgent(run, name, workspace) {
+  const r = await run(["agents", "add", name, "--workspace", workspace, "--non-interactive", "--json"]);
+  if (r.code !== 0) throw new Refusal(`OpenClaw did not add the agent (${said(r)})`);
+  const id = json(r.stdout)?.agentId;
+  return typeof id === "string" && id !== "" ? id : name;
+}
+async function setIdentity(run, id) {
+  return (await run(["agents", "set-identity", "--agent", id, "--from-identity", "--json"])).code === 0;
+}
+async function deleteAgent(run, id) {
+  const r = await run(["agents", "delete", id, "--force", "--json"]);
+  if (r.code !== 0) throw new Refusal(`OpenClaw did not delete the agent (${said(r)})`);
+}
+
+// src/workspace.ts
 var RECORD_FILE = ".harnsy/hire.json";
 function workspaceFiles(tree) {
   const home = workspaceFolder(tree.name) + "/", files = /* @__PURE__ */ new Map();
@@ -1526,7 +1585,7 @@ function readRecord(root) {
   } catch {
     throw bad;
   }
-  if (typeof rec !== "object" || rec === null || rec.v !== 1 || typeof rec.id !== "string" || !isID(rec.id) || typeof rec.version !== "string" || !isVersion(rec.version) || typeof rec.agent !== "string" || typeof rec.files !== "object" || rec.files === null) throw bad;
+  if (typeof rec !== "object" || rec === null || rec.v !== 1 || typeof rec.id !== "string" || !isID(rec.id) || typeof rec.version !== "string" || !isVersion(rec.version) || typeof rec.agent !== "string" || !isAgentID(rec.agent) || typeof rec.files !== "object" || rec.files === null) throw bad;
   for (const [rel, sum] of Object.entries(rec.files)) {
     if (typeof sum !== "string" || !/^[0-9a-f]{64}$/.test(sum) || !isOurs(rel)) throw bad;
   }
@@ -1604,64 +1663,6 @@ async function showCommand(cx, id) {
 
 // src/commands/hire.ts
 import { join as join4 } from "node:path";
-
-// src/openclaw.ts
-import { spawn } from "node:child_process";
-function spawnRunner(argv = process.argv, execPath = process.execPath) {
-  return (args) => new Promise((resolve3) => {
-    const cli2 = argv[1];
-    if (!cli2) return resolve3({ code: 1, stdout: "", stderr: "the openclaw program that is running was not found" });
-    const child = spawn(execPath, [cli2, ...args], { shell: false, stdio: ["ignore", "pipe", "pipe"] });
-    let stdout = "", stderr = "";
-    child.stdout.on("data", (d) => {
-      stdout += d.toString("utf8");
-    });
-    child.stderr.on("data", (d) => {
-      stderr += d.toString("utf8");
-    });
-    child.on("error", (err2) => resolve3({ code: 1, stdout, stderr: stderr + err2.message }));
-    child.on("close", (code) => resolve3({ code: code ?? 1, stdout, stderr }));
-  });
-}
-function said(r) {
-  const text3 = (r.stderr.trim() || r.stdout.trim()).split("\n").slice(-3).join(" ").slice(0, 400);
-  return text3 === "" ? `exit code ${r.code}` : text3;
-}
-function json(stdout) {
-  for (let at = stdout.search(/^[[{]/m); at >= 0; ) {
-    try {
-      return JSON.parse(stdout.slice(at));
-    } catch {
-      const next = stdout.slice(at + 1).search(/^[[{]/m);
-      at = next < 0 ? -1 : at + 1 + next;
-    }
-  }
-  return void 0;
-}
-async function listAgents(run) {
-  const r = await run(["agents", "list", "--json"]);
-  const list2 = r.code === 0 ? json(r.stdout) : void 0;
-  if (!Array.isArray(list2)) throw new Refusal(`OpenClaw did not list its agents (${said(r)})`);
-  return list2.flatMap((a) => {
-    const o = a ?? {};
-    return typeof o["id"] === "string" ? [{ id: o["id"], workspace: typeof o["workspace"] === "string" ? o["workspace"] : "" }] : [];
-  });
-}
-async function addAgent(run, name, workspace) {
-  const r = await run(["agents", "add", name, "--workspace", workspace, "--non-interactive", "--json"]);
-  if (r.code !== 0) throw new Refusal(`OpenClaw did not add the agent (${said(r)})`);
-  const id = json(r.stdout)?.agentId;
-  return typeof id === "string" && id !== "" ? id : name;
-}
-async function setIdentity(run, id) {
-  return (await run(["agents", "set-identity", "--agent", id, "--from-identity", "--json"])).code === 0;
-}
-async function deleteAgent(run, id) {
-  const r = await run(["agents", "delete", id, "--force", "--json"]);
-  if (r.code !== 0) throw new Refusal(`OpenClaw did not delete the agent (${said(r)})`);
-}
-
-// src/commands/hire.ts
 var RESERVED = /* @__PURE__ */ new Set(["openclaw", "crestodian"]);
 async function preflight(cx, name, root) {
   if (RESERVED.has(name)) throw new Refusal(`OpenClaw keeps the agent name «${name}» for itself: this employee cannot be hired under it`);

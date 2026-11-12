@@ -141,6 +141,26 @@ test("a damaged record of a hire stops update and fire; nothing in it becomes a 
   assert.deepEqual(w.calls, []);
 });
 
+test("a record whose agent is not an OpenClaw agent id stops update and fire before OpenClaw is called", async () => {
+  const { w, root } = await hiredThenReleased();
+  const record = join(root, ".harnsy", "hire.json"), good = JSON.parse(readFileSync(record, "utf8"));
+  for (const agent of ["--force", "../x", "a b", "", "-x", "x".repeat(65), "x\n", 7]) {
+    writeFileSync(record, JSON.stringify({ ...good, agent }));
+    assert.match(await refusal(updateCommand(w.cx(), ID, { yes: true, replaceEdited: true })), /hire\.json is damaged/, String(agent));
+    assert.match(await refusal(fireCommand(w.cx(), ID, { yes: true })), /hire\.json is damaged/, String(agent));
+    listCommand(w.cx());
+    assert.match(w.printed.at(-1)!, /Nobody is hired yet/, "a damaged record is not a hire to list");
+  }
+  assert.deepEqual(w.calls, [], "OpenClaw is never run with a word out of a damaged record");
+  assert.ok(w.agents.has("reviewer") && existsSync(join(root, "SOUL.md")));
+
+  writeFileSync(record, JSON.stringify(good));
+  await updateCommand(w.cx(), ID, { yes: true });
+  assert.match(w.printed.at(-1)!, /^Updated: harnsy\/reviewer is at 1\.1\.0\.$/);
+  await fireCommand(w.cx(), ID, { yes: true });
+  assert.deepEqual(w.calls.at(-1), ["agents", "delete", "reviewer", "--force", "--json"]);
+});
+
 test("list names who is hired; fire deletes the agent through OpenClaw only after a yes", async () => {
   const { w, root } = await hiredThenReleased();
   listCommand(w.cx());
