@@ -15,23 +15,43 @@ under it is refused, and nothing is written.
 
 ## Install
 
-From a release tag (valid once a tag exists; none is published yet):
+You need OpenClaw 2026.11.3 or later, set up with a model, and `git` on the machine.
 
 ```
-openclaw plugins install git:github.com/harnesy/hr-openclaw@<tag>
+openclaw plugins install git:github.com/harnesy/hr-openclaw@v0.1.0
 ```
 
-From a checkout of this repository:
+`@v0.1.0` is the release. Without `@…` OpenClaw installs the current `main`; a full commit after `@` works too. The
+source is spelled `git:github.com/…`: a full `https://` address is refused («URLs are not allowed»).
 
-```
-openclaw plugins install <path to the checkout>
-```
-
-OpenClaw warns that a source outside ClawHub is not reviewed, and wants a confirmation. In a script, add
-`--force --accept-capabilities`. What the plugin declares is one terminal command and one chat command.
+OpenClaw warns that a source outside ClawHub is not reviewed and asks twice, each time with no as the default: first
+whether to install from this source, then, after it has cloned the repository, whether to accept what the plugin
+declares (one terminal command and one chat command). In a script, or with nobody to answer, add
+`--force --accept-capabilities`: without them it cancels and installs nothing.
 
 Nothing is built or downloaded at install: the built plugin is in `dist/`, and it has no dependencies to install.
+OpenClaw still prints «Installing plugin dependencies with npm…»; all it leaves is a link to OpenClaw itself.
 `openclaw plugins inspect harnsy-hr --runtime --json` shows what OpenClaw loaded.
+
+From a checkout of this repository: `openclaw plugins install <path to the checkout>`.
+
+## First hire
+
+```
+openclaw harnsy-hr search accountant          find an employee
+openclaw harnsy-hr show harnsy/accountant     the card, what it needs, the files, the notice
+openclaw harnsy-hr hire harnsy/accountant     shows the same, asks, then writes the files and adds the agent
+openclaw harnsy-hr list                       who is hired on this machine
+openclaw agent --agent accountant --message "Who are you, what do you do first, what do you hand over?"
+```
+
+The hired agent uses the model your OpenClaw is set up with: there is no other step. Before the agent's answer
+OpenClaw prints a warning that it cannot verify where this plugin came from: it is not from ClawHub. The answer
+follows.
+
+These lines were run as written on a clean OpenClaw 2026.11.3 on Linux, with the plugin installed from GitHub: at a
+terminal, answering the questions, and again with `--force --accept-capabilities` and `--yes`. The last line had
+`--local` added, since no Gateway ran there: the employee answers in its role. Not run: Windows, macOS.
 
 ## Commands
 
@@ -99,7 +119,8 @@ carries the employee's name.
   the write, not in one step with it: a program that works in the workspace at that very moment could put a link
   there in between.
 - The hired agent uses the model your OpenClaw is set up with. Talking to it (`openclaw agent --agent <name> …`) is
-  OpenClaw's own command; it needs a model and was not part of this repository's tests.
+  OpenClaw's own command; it needs a model, so this repository's tests do not run it. It was run by hand on a clean
+  OpenClaw 2026.11.3 («First hire» above).
 
 ## What is checked on your machine
 
