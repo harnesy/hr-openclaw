@@ -295,7 +295,7 @@ var workspaceFolder = (name) => `workspace-${name}`;
 function renderOpenClaw(e) {
   const name = shortName(e.entry.id), home = workspaceFolder(name) + "/";
   const l = {
-    change: "rendered for openclaw",
+    change: "assembled into an OpenClaw agent workspace",
     inside: home,
     persona: home + "SOUL.md",
     job: home + "AGENTS.md",

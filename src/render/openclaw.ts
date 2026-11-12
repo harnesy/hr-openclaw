@@ -19,7 +19,7 @@ export const workspaceFolder = (name: string) => `workspace-${name}`;
 export function renderOpenClaw(e: Employee): Tree {
   const name = shortName(e.entry.id), home = workspaceFolder(name) + "/";
   const l: Layout = {
-    change: "rendered for openclaw", inside: home,
+    change: "assembled into an OpenClaw agent workspace", inside: home,
     persona: home + "SOUL.md", job: home + "AGENTS.md", notice: home + "NOTICE.md", casebook: home + "docs/persona-casebook.md",
     skillDir: (skill) => `${home}skills/${skill}`,
     skillRef: (skill) => "`" + skill + "` (a skill of this workspace)",

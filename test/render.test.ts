@@ -47,7 +47,7 @@ test("an employee is one workspace folder with SOUL.md, AGENTS.md, IDENTITY.md a
     }
     for (const text of [soul, agents]) {
       const last = lastLine(text);
-      assert.ok(last.includes(e.entry.cvUrl) && last.includes("rendered for openclaw") && last.includes(`${e.entry.title} ${e.entry.version}`), last);
+      assert.ok(last.includes(e.entry.cvUrl) && last.includes("Changes: assembled into an OpenClaw agent workspace.") && last.includes(`${e.entry.title} ${e.entry.version}`), last);
     }
     for (const line of [`- Name: ${e.doc.persona.name || e.entry.title}`, `- Creature: AI agent, ${e.doc.role.name}`, `- Vibe: ${e.doc.role.tagline}`]) {
       assert.ok(identity.includes(line), `${id}: IDENTITY.md lacks the line ${line}`);
