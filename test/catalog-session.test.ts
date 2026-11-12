@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
+import { chatCommand } from "../src/chat.ts";
+import { registerCli } from "../src/cli.ts";
 import { searchCommand, showCommand } from "../src/commands/browse.ts";
 import { hireCommand } from "../src/commands/hire.ts";
 import { listCommand } from "../src/commands/staff.ts";
@@ -9,6 +11,7 @@ import { updateCommand } from "../src/commands/update.ts";
 import { CATALOG_KEYS, catalogConfig, NO_KEY } from "../src/keys.ts";
 import { rememberSeq, seenSeq, stateFile } from "../src/state.ts";
 import { bytes, Kit, write } from "./kit/kit.ts";
+import { recorder } from "./kit/program.ts";
 import { refusal, sample, tempDir } from "./kit/sample.ts";
 import { world } from "./kit/world.ts";
 
@@ -36,13 +39,26 @@ test("the plugin as shipped has no catalog key yet: the slot is empty and every 
 
 test("a stand is named by two environment variables, and every command says first that a test catalog is in use", async () => {
   const { k, w } = stand(), pub = `t1:${Buffer.from(k.key.pub).toString("base64")}`;
-  const bases: string[] = [];
-  const cx = w.cx({ keys: [], env: { HARNSY_HR_FEED: "http://127.0.0.1:8800", HARNSY_HR_PUB: pub },
+  const bases: string[] = [], note = "A test catalog is in use (HARNSY_HR_FEED or HARNSY_HR_PUB is set): reading http://127.0.0.1:8800, trusting t1.";
+  const cx = () => w.cx({ keys: [], env: { HARNSY_HR_FEED: "http://127.0.0.1:8800", HARNSY_HR_PUB: pub },
     source: (base) => { bases.push(base); return w.cx().source!(base); } });
-  await searchCommand(cx, "reviewer");
-  assert.equal(w.printed[0], "A test catalog is in use (HARNSY_HR_FEED or HARNSY_HR_PUB is set): reading http://127.0.0.1:8800, trusting t1.");
-  assert.match(w.printed[1]!, /^harnsy\/reviewer  1\.0\.0  Reviewer/);
-  assert.deepEqual(bases, ["http://127.0.0.1:8800"]);
+  const { program, commands } = recorder();
+  registerCli(program, cx, (text) => { w.printed.push(text); });
+  const run = (verb: string, ...args: unknown[]) => commands.get(`harnsy-hr ${verb}`)!.action!(...args);
+  for (const [verb, args] of [["search", [["reviewer"], {}]], ["show", ["harnsy/reviewer"]], ["hire", ["harnsy/reviewer", { yes: true }]],
+    ["update", ["harnsy/reviewer", { yes: true }]], ["list", [{}]], ["fire", ["harnsy/reviewer", { yes: true }]]] as const) {
+    w.printed.length = 0;
+    await run(verb, ...args);
+    assert.equal(w.printed[0], note, verb);
+    assert.ok(w.printed.length > 1 && !w.printed[1]!.startsWith("harnsy-hr:"), `${verb}: ${w.printed[1]}`);
+  }
+  assert.deepEqual([...new Set(bases)], ["http://127.0.0.1:8800"]);
+  for (const args of ["search reviewer", "list", "hire harnsy/reviewer"]) assert.ok((await chatCommand(cx(), args)).startsWith(note + "\n\n"), args);
+  const real = recorder();
+  registerCli(real.program, () => w.cx(), () => {});
+  w.printed.length = 0;
+  await real.commands.get("harnsy-hr list")!.action!({});
+  assert.ok(!w.printed.join("\n").includes("test catalog"), "the real catalog is not announced");
 
   assert.equal(catalogConfig({}, []).base, "https://hr.harnsy.dev");
   assert.equal(catalogConfig({}, []).testNote, "");

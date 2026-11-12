@@ -7,7 +7,7 @@ import { addAgent, listAgents, setIdentity } from "../openclaw.ts";
 import { workspaceFolder } from "../render/openclaw.ts";
 import { VERSION } from "../version.ts";
 import { isFree, RECORD_FILE, replace, rollback, workspaceFiles, writeNew, writeRecord, type HireRecord } from "../workspace.ts";
-import { confirm, type Context, employeeFor, type Hired } from "./context.ts";
+import { checkID, confirm, type Context, employeeFor, type Hired, needPerson } from "./context.ts";
 import { cli, describe } from "./text.ts";
 
 // Agent ids OpenClaw keeps for itself.
@@ -56,6 +56,8 @@ export interface HireOptions {
 
 /** `hire <id>`. */
 export async function hireCommand(cx: Context, id: string, opts: HireOptions = {}): Promise<void> {
+  checkID(id);
+  needPerson(cx, opts.yes);
   const h = await employeeFor(cx, id);
   const name = h.tree.name, root = join(cx.stateDir, workspaceFolder(name));
   await preflight(cx, name, root);

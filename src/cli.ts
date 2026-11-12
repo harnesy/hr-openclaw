@@ -2,7 +2,7 @@
 // Commander program; this file only names the commands and their flags and passes the words on.
 import { Refusal } from "./catalog/types.ts";
 import { searchCommand, showCommand } from "./commands/browse.ts";
-import type { Context } from "./commands/context.ts";
+import { announce, type Context } from "./commands/context.ts";
 import { hireCommand } from "./commands/hire.ts";
 import { fireCommand, listCommand } from "./commands/staff.ts";
 import { updateCommand } from "./commands/update.ts";
@@ -28,7 +28,9 @@ export function failureText(err: unknown): string {
 export function registerCli(program: Program, context: () => Context, fail: (text: string) => void): void {
   const run = (fn: (cx: Context, ...args: any[]) => unknown) => async (...args: any[]) => {
     try {
-      await fn(context(), ...args);
+      const cx = context();
+      announce(cx);
+      await fn(cx, ...args);
     } catch (err) {
       fail(failureText(err));
     }

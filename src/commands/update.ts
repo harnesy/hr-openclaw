@@ -8,7 +8,7 @@ import { hexSum } from "../catalog/verify.ts";
 import { setIdentity } from "../openclaw.ts";
 import { workspaceFolder } from "../render/openclaw.ts";
 import { currentSum, readRecord, remove, replace, workspaceFiles, writeRecord, type HireRecord } from "../workspace.ts";
-import { checkID, confirm, type Context, employeeFor } from "./context.ts";
+import { checkID, confirm, type Context, employeeFor, needPerson } from "./context.ts";
 import { recordFor } from "./hire.ts";
 import { cli } from "./text.ts";
 
@@ -67,6 +67,7 @@ async function chooseEdited(cx: Context, opts: UpdateOptions, edited: string[]):
 /** `update <id>`. */
 export async function updateCommand(cx: Context, id: string, opts: UpdateOptions = {}): Promise<void> {
   checkID(id);
+  needPerson(cx, opts.yes);
   const root = join(cx.stateDir, workspaceFolder(shortName(id))), rec = readRecord(root);
   if (!rec || rec.id !== id) throw new Refusal(`${id} was not hired by this plugin on this machine (${cli("list")} shows who was)`);
   const h = await employeeFor(cx, id);

@@ -7,7 +7,7 @@ import { Refusal } from "../catalog/types.ts";
 import { deleteAgent, listAgents } from "../openclaw.ts";
 import { workspaceFolder } from "../render/openclaw.ts";
 import { readRecord, type HireRecord } from "../workspace.ts";
-import { checkID, confirm, type Context } from "./context.ts";
+import { checkID, confirm, type Context, needPerson } from "./context.ts";
 import { cli } from "./text.ts";
 
 /** The records of every workspace this plugin wrote under the state directory. */
@@ -46,6 +46,7 @@ export interface FireOptions {
 /** `fire <id>`: after a yes, OpenClaw deletes the agent (it moves the workspace, state and transcripts to the Trash). */
 export async function fireCommand(cx: Context, id: string, opts: FireOptions = {}): Promise<void> {
   checkID(id);
+  needPerson(cx, opts.yes);
   const root = join(cx.stateDir, workspaceFolder(shortName(id))), rec = readRecord(root);
   if (!rec || rec.id !== id) {
     throw new Refusal(`${id} was not hired by this plugin on this machine (${cli("list")} shows who was). An agent of your own is removed with: openclaw agents delete <id>`);

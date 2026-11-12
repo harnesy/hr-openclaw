@@ -28,13 +28,18 @@ export interface Catalog {
   src: Source;
 }
 
+/** Says, before a command does anything, that a test catalog is in use; silent for the real one. */
+export function announce(cx: Context): void {
+  const note = catalogConfig(cx.env, cx.keys ?? CATALOG_KEYS).testNote;
+  if (note !== "") cx.out(note);
+}
+
 /**
- * Fetches the feed and verifies it. Says first when a test catalog is in use; refuses when no key is built in; refuses
- * a feed older than the newest this machine has seen, and remembers a newer one.
+ * Fetches the feed and verifies it. Refuses when no key is built in; refuses a feed older than the newest this machine
+ * has seen, and remembers a newer one.
  */
 export async function openCatalog(cx: Context): Promise<Catalog> {
   const cfg = catalogConfig(cx.env, cx.keys ?? CATALOG_KEYS);
-  if (cfg.testNote !== "") cx.out(cfg.testNote);
   if (cfg.keys.length === 0) throw new Refusal(NO_KEY);
   const src = (cx.source ?? ((base) => httpSource(base, USER_AGENT)))(cfg.base);
   const feed = await fetchFeed(src, cfg.keys, CATALOG_HOST, cx.now(), (kid) => seenSeq(cx.stateDir, kid));
@@ -66,9 +71,13 @@ export async function employeeFor(cx: Context, id: string): Promise<Hired> {
   return { feed, employee, tree: renderOpenClaw(employee) };
 }
 
-/** Asks the person; refuses where nobody can answer and no yes was given beforehand. */
+/** Refuses, before anything is fetched or shown, where nobody can answer and no yes was given beforehand. */
+export function needPerson(cx: Context, yes: boolean | undefined): void {
+  if (!yes && !cx.ask) throw new Refusal("this step waits for a person's yes: run it in a terminal, or pass --yes");
+}
+
+/** Asks the person, unless the yes was given beforehand. */
 export async function confirm(cx: Context, yes: boolean | undefined, question: string): Promise<boolean> {
-  if (yes) return true;
-  if (!cx.ask) throw new Refusal("this step waits for a person's yes: run it in a terminal, or pass --yes");
-  return cx.ask(question);
+  needPerson(cx, yes);
+  return yes ? true : cx.ask!(question);
 }

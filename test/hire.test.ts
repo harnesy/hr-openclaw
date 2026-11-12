@@ -62,8 +62,11 @@ test("hire shows the card, what the employee needs, every file and the whole not
 
 test("hire without a person and without --yes is refused; nothing is written", async () => {
   const w = await fresh(), before = w.snapshot();
-  assert.match(await refusal(hireCommand(w.cx(), "harnsy/sample-plain")), /waits for a person's yes.*--yes/);
+  let fetched = 0;
+  const cx = w.cx({ source: () => ({ get: async () => { fetched++; return Buffer.alloc(0); } }) });
+  assert.match(await refusal(hireCommand(cx, "harnsy/sample-plain")), /waits for a person's yes.*--yes/);
   assert.deepEqual(w.snapshot(), before);
+  assert.deepEqual([fetched, w.printed.length, w.calls.length], [0, 0, 0], "nothing is fetched, shown or run when nobody can answer");
 });
 
 test("a script of a skill is written as data: not executable, never run", async () => {

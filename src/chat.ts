@@ -4,7 +4,7 @@
 import { isID } from "./catalog/grammar.ts";
 import { failureText } from "./cli.ts";
 import { searchCommand, showCommand } from "./commands/browse.ts";
-import type { Context } from "./commands/context.ts";
+import { announce, type Context } from "./commands/context.ts";
 import { listCommand } from "./commands/staff.ts";
 import { cli } from "./commands/text.ts";
 import { PLUGIN_ID } from "./version.ts";
@@ -22,6 +22,7 @@ export async function chatCommand(base: Omit<Context, "out" | "ask">, args: stri
   const cx: Context = { ...base, out: (text) => { lines.push(text); }, ask: null };
   const [verb = "", ...rest] = args.trim().split(/\s+/);
   try {
+    announce(cx);
     if (verb === "search") await searchCommand(cx, rest.join(" "));
     else if (verb === "show") await showCommand(cx, rest[0] ?? "");
     else if (verb === "list") listCommand(cx);

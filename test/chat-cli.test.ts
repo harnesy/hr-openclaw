@@ -3,9 +3,10 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { Refusal } from "../src/catalog/types.ts";
 import { chatCommand } from "../src/chat.ts";
-import { failureText, registerCli, type Program } from "../src/cli.ts";
+import { failureText, registerCli } from "../src/cli.ts";
 import { hireCommand } from "../src/commands/hire.ts";
 import { stateDirOf } from "../src/host.ts";
+import { recorder } from "./kit/program.ts";
 import { staff } from "./kit/staff.ts";
 import { world } from "./kit/world.ts";
 
@@ -51,21 +52,6 @@ test("chat: anything else gets the short help; a refusal is one plain line", asy
   assert.match(await chatCommand(w.cx({ keys: [] }), "search x"), /^harnsy-hr: This version of the plugin has no catalog key built in yet/);
 });
 
-/** Records what a Commander program is told. */
-function recorder() {
-  const commands = new Map<string, { options: string[]; action?: (...args: any[]) => unknown }>();
-  const make = (path: string): Program => {
-    const self: Program = {
-      command(spec) { const name = `${path} ${spec.split(" ")[0]}`.trim(); commands.set(name, { options: [] }); return make(name); },
-      description() { return self; },
-      option(flags) { commands.get(path)!.options.push(flags.split(" ")[0]!); return self; },
-      action(fn) { commands.get(path)!.action = fn; return self; },
-    };
-    return self;
-  };
-  return { program: make(""), commands };
-}
-
 test("the terminal command is harnsy-hr with search, show, hire, update, list, fire", async () => {
   const w = await fresh(), failures: string[] = [], { program, commands } = recorder();
   registerCli(program, () => w.cx(), (text) => failures.push(text));
@@ -86,7 +72,7 @@ test("the terminal command is harnsy-hr with search, show, hire, update, list, f
   assert.ok(!w.agents.has("sample-skills"));
   assert.deepEqual(failures, []);
 
-  await commands.get("harnsy-hr hire")!.action!("harnsy/nobody", {}, {});
+  await commands.get("harnsy-hr hire")!.action!("harnsy/nobody", { yes: true }, {});
   await commands.get("harnsy-hr show")!.action!("nonsense", {}, {});
   assert.deepEqual(failures, ["harnsy-hr: harnsy/nobody is not in the catalog",
     "harnsy-hr: that is not an employee id: want <publisher>/<name>, for example harnsy/accountant"]);

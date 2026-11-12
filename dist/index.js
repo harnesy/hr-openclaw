@@ -1392,9 +1392,12 @@ function rememberSeq(stateDir, kid, seq) {
 }
 
 // src/commands/context.ts
+function announce(cx) {
+  const note = catalogConfig(cx.env, cx.keys ?? CATALOG_KEYS).testNote;
+  if (note !== "") cx.out(note);
+}
 async function openCatalog(cx) {
   const cfg = catalogConfig(cx.env, cx.keys ?? CATALOG_KEYS);
-  if (cfg.testNote !== "") cx.out(cfg.testNote);
   if (cfg.keys.length === 0) throw new Refusal(NO_KEY);
   const src = (cx.source ?? ((base) => httpSource(base, USER_AGENT)))(cfg.base);
   const feed = await fetchFeed(src, cfg.keys, CATALOG_HOST, cx.now(), (kid) => seenSeq(cx.stateDir, kid));
@@ -1415,10 +1418,12 @@ async function employeeFor(cx, id) {
   const employee = await fetchEmployee(src, feed, CATALOG_HOST, entry2);
   return { feed, employee, tree: renderOpenClaw(employee) };
 }
+function needPerson(cx, yes) {
+  if (!yes && !cx.ask) throw new Refusal("this step waits for a person's yes: run it in a terminal, or pass --yes");
+}
 async function confirm(cx, yes, question) {
-  if (yes) return true;
-  if (!cx.ask) throw new Refusal("this step waits for a person's yes: run it in a terminal, or pass --yes");
-  return cx.ask(question);
+  needPerson(cx, yes);
+  return yes ? true : cx.ask(question);
 }
 
 // src/workspace.ts
@@ -1671,6 +1676,8 @@ function writeAll(h, root, agent) {
   return written;
 }
 async function hireCommand(cx, id, opts = {}) {
+  checkID(id);
+  needPerson(cx, opts.yes);
   const h = await employeeFor(cx, id);
   const name = h.tree.name, root = join4(cx.stateDir, workspaceFolder(name));
   await preflight(cx, name, root);
@@ -1726,6 +1733,7 @@ function listCommand(cx) {
 }
 async function fireCommand(cx, id, opts = {}) {
   checkID(id);
+  needPerson(cx, opts.yes);
   const root = join5(cx.stateDir, workspaceFolder(shortName(id))), rec = readRecord(root);
   if (!rec || rec.id !== id) {
     throw new Refusal(`${id} was not hired by this plugin on this machine (${cli("list")} shows who was). An agent of your own is removed with: openclaw agents delete <id>`);
@@ -1778,6 +1786,7 @@ async function chooseEdited(cx, opts, edited) {
 }
 async function updateCommand(cx, id, opts = {}) {
   checkID(id);
+  needPerson(cx, opts.yes);
   const root = join6(cx.stateDir, workspaceFolder(shortName(id))), rec = readRecord(root);
   if (!rec || rec.id !== id) throw new Refusal(`${id} was not hired by this plugin on this machine (${cli("list")} shows who was)`);
   const h = await employeeFor(cx, id);
@@ -1814,7 +1823,9 @@ function failureText(err2) {
 function registerCli(program, context, fail2) {
   const run = (fn) => async (...args) => {
     try {
-      await fn(context(), ...args);
+      const cx = context();
+      announce(cx);
+      await fn(cx, ...args);
     } catch (err2) {
       fail2(failureText(err2));
     }
@@ -1843,6 +1854,7 @@ async function chatCommand(base, args) {
   }, ask: null };
   const [verb = "", ...rest] = args.trim().split(/\s+/);
   try {
+    announce(cx);
     if (verb === "search") await searchCommand(cx, rest.join(" "));
     else if (verb === "show") await showCommand(cx, rest[0] ?? "");
     else if (verb === "list") listCommand(cx);
