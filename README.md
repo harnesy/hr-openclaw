@@ -30,8 +30,9 @@ declares (one terminal command and one chat command). In a script, or with nobod
 `--force --accept-capabilities`: without them it cancels and installs nothing.
 
 The second question lists «Prompt injection: allowed». That is OpenClaw's default for every plugin that is not its
-own, a setting on your side (`plugins.entries.harnsy-hr.hooks.allowPromptInjection` in your `openclaw.json`), not
-something this plugin asks for: it registers no hooks and adds nothing to a prompt.
+own, a setting on your side in your `openclaw.json` (OpenClaw's documentation names it; its name differs between
+OpenClaw releases), not something this plugin asks for: it registers no hooks and adds nothing to a prompt. With
+that setting denied on OpenClaw 2026.11.3, `search` and `hire` worked the same.
 
 Nothing is built or downloaded at install: the built plugin is in `dist/`, and it has no dependencies to install.
 OpenClaw still prints «Installing plugin dependencies with npm…»; all it leaves is a link to OpenClaw itself.
