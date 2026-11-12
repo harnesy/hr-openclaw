@@ -10,9 +10,8 @@ touched; several employees live side by side.
 
 Built and tested against OpenClaw 2026.11.3.
 
-> **Status.** The catalog's public key is not published yet, so this version has no key built in
-> (`src/keys.ts` holds an empty slot for it). Until a version with the key is released, every command that reads the
-> catalog stops with a sentence saying so; nothing is fetched and nothing is written.
+The catalog's public key (key id `c1`) is built into the plugin (`src/keys.ts`). A feed whose signature does not verify
+under it is refused, and nothing is written.
 
 ## Install
 

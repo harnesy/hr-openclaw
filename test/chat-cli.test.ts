@@ -49,7 +49,7 @@ test("chat: anything else gets the short help; a refusal is one plain line", asy
   for (const args of ["", "help", "delete everything"]) assert.match(await chatCommand(w.cx(), args), /^\/harnsy-hr search <words>/);
   assert.equal(await chatCommand(w.cx(), "show ../../etc/passwd"), "harnsy-hr: that is not an employee id: want <publisher>/<name>, for example harnsy/accountant");
   assert.equal(await chatCommand(w.cx(), "show harnsy/nobody"), "harnsy-hr: harnsy/nobody is not in the catalog");
-  assert.match(await chatCommand(w.cx({ keys: [] }), "search x"), /^harnsy-hr: This version of the plugin has no catalog key built in yet/);
+  assert.match(await chatCommand(w.cx({ keys: [] }), "search x"), /^harnsy-hr: This build of the plugin has no catalog key built in, /);
 });
 
 test("the terminal command is harnsy-hr with search, show, hire, update, list, fire", async () => {

@@ -22,15 +22,33 @@ function stand() {
   return { k, dir, pack, w: world(k, dir) };
 }
 
-test("the plugin as shipped has no catalog key yet: the slot is empty and every command that reads the catalog refuses", async () => {
-  assert.deepEqual(CATALOG_KEYS, [], "when the key c1 is published it goes into src/keys.ts and this test changes with it");
+test("the plugin as shipped trusts exactly one catalog key, c1, and reads the real catalog", () => {
+  assert.deepEqual(CATALOG_KEYS.map((key) => key.kid), ["c1"]);
+  const cfg = catalogConfig({});
+  assert.deepEqual(cfg.keys.map((key) => [key.kid, key.pub.length]), [["c1", 32]]);
+  assert.equal(Buffer.from(cfg.keys[0]!.pub).toString("base64"), "WMZK4GiSTfBo5ZeMNZjDRextsTDGfoCU1KF6jlrqVjM=");
+  assert.deepEqual([cfg.base, cfg.testNote], ["https://hr.harnsy.dev", ""]);
+});
+
+test("a feed signed under another key than the built-in one is refused; nothing is written", async () => {
+  const { w } = stand(), before = w.snapshot();
+  const cx = w.cx({ keys: undefined });
+  for (const run of [() => searchCommand(cx, "reviewer"), () => hireCommand(cx, "harnsy/reviewer", { yes: true })]) {
+    assert.match(await refusal(run()), /kid "t1" is not a catalog key this plugin knows; update the plugin/);
+  }
+  assert.deepEqual(w.snapshot(), before);
+  assert.deepEqual(w.calls, []);
+});
+
+test("with no catalog key at all every command that reads the catalog refuses and nothing is fetched", async () => {
   const { w } = stand(), before = w.snapshot();
   let fetched = 0;
-  const cx = w.cx({ keys: undefined, source: () => ({ get: async () => { fetched++; return Buffer.alloc(0); } }) });
+  const cx = w.cx({ keys: [], source: () => ({ get: async () => { fetched++; return Buffer.alloc(0); } }) });
   for (const run of [() => searchCommand(cx, "reviewer"), () => showCommand(cx, "harnsy/reviewer"),
     () => hireCommand(cx, "harnsy/reviewer", { yes: true })]) {
     assert.equal(await refusal(run()), NO_KEY);
   }
+  assert.equal(NO_KEY, "This build of the plugin has no catalog key built in, so it cannot check the catalog's signature and reads nothing from it.");
   assert.equal(fetched, 0, "nothing is fetched when nothing could be verified");
   assert.deepEqual(w.snapshot(), before);
   listCommand(cx);

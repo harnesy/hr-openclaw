@@ -1346,7 +1346,7 @@ function httpSource(base, userAgent) {
 
 // src/keys.ts
 var CATALOG_KEYS = [
-  // { kid: "c1", pub: "<base64 of the raw 32-byte Ed25519 public key>" },
+  { kid: "c1", pub: "WMZK4GiSTfBo5ZeMNZjDRextsTDGfoCU1KF6jlrqVjM=" }
 ];
 function catalogConfig(env, builtIn = CATALOG_KEYS) {
   const feed = env["HARNSY_HR_FEED"] ?? "", pub = env["HARNSY_HR_PUB"] ?? "";
@@ -1360,7 +1360,7 @@ function catalogConfig(env, builtIn = CATALOG_KEYS) {
   const testNote = feed === "" && pub === "" ? "" : `A test catalog is in use (HARNSY_HR_FEED or HARNSY_HR_PUB is set): reading ${base}, trusting ${keys.map((k) => k.kid).join(", ") || "no key"}.`;
   return { base, keys, testNote };
 }
-var NO_KEY = "This version of the plugin has no catalog key built in yet, so it cannot check the catalog's signature and reads nothing from it. Update the plugin once the key is published.";
+var NO_KEY = "This build of the plugin has no catalog key built in, so it cannot check the catalog's signature and reads nothing from it.";
 
 // src/state.ts
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";

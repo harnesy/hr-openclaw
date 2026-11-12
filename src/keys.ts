@@ -4,14 +4,15 @@ import type { Key } from "./catalog/types.ts";
 import { CATALOG_HOST, Refusal } from "./catalog/types.ts";
 
 // ====================================================================================================================
-// EMPTY SLOT: the catalog's public key «c1» is not published yet.
+// The catalog's public keys: each line is a key id and the base64 of the raw 32-byte Ed25519 public key. They are
+// public; the private halves never leave the catalog's publisher.
 //
-// When it is, add one line here: its key id and the base64 of the raw 32-byte Ed25519 public key, and rebuild dist/.
-// Until then this list is empty and every command that reads the catalog refuses: a feed whose signature cannot be
-// checked is never used. A key is never taken from the network, from the feed itself or from a config file.
+// A feed is used only when its signature verifies under one of these keys. A key is never taken from the network,
+// from the feed itself or from a config file. When the catalog moves to a new key, its line is added here and dist/
+// is rebuilt; a feed signed under a key id that is not in this list is refused («update the plugin»).
 // ====================================================================================================================
 export const CATALOG_KEYS: readonly { kid: string; pub: string }[] = [
-  // { kid: "c1", pub: "<base64 of the raw 32-byte Ed25519 public key>" },
+  { kid: "c1", pub: "WMZK4GiSTfBo5ZeMNZjDRextsTDGfoCU1KF6jlrqVjM=" },
 ];
 
 /** Where the catalog is read from and which keys its signatures are checked against. */
@@ -40,4 +41,5 @@ export function catalogConfig(env: Record<string, string | undefined>, builtIn =
   return { base, keys, testNote };
 }
 
-export const NO_KEY = "This version of the plugin has no catalog key built in yet, so it cannot check the catalog's signature and reads nothing from it. Update the plugin once the key is published.";
+// Said when the key list is empty, which the plugin as shipped never is: nothing is read without a key to check it by.
+export const NO_KEY = "This build of the plugin has no catalog key built in, so it cannot check the catalog's signature and reads nothing from it.";
