@@ -2,13 +2,18 @@
 // that match more words come first, then the better matches, then the ones named by the very word, then the feed's
 // order. It runs on the person's machine: the words are never sent anywhere.
 import type { Entry } from "./catalog/types.ts";
+import { Refusal } from "./catalog/types.ts";
 import { byteLen } from "./gotext.ts";
 import { shortName } from "./catalog/grammar.ts";
 
 export const DEFAULT_LIMIT = 10;
 export const MAX_LIMIT = 20;
-const MAX_QUERY_BYTES = 256;
-const MAX_TERMS = 16;
+
+// Limits of a request. What a person types is short; a longer request is refused, not cut: a search costs one pass
+// over every employee's words per word asked, so the words asked are few.
+export const MAX_QUERY_BYTES = 256;
+export const MAX_QUERY_TERMS = 16; // different words that are searched for
+export const MAX_DEPARTMENT_BYTES = 64;
 
 // Words too common in a request to tell one employee from another.
 const STOP_WORDS = new Set(["a", "an", "the", "and", "or", "for", "to", "of", "on", "in", "with", "who", "that", "can", "me", "my",
@@ -74,23 +79,42 @@ export interface Found {
   total: number; // how many employees match in all
 }
 
+interface Term {
+  word: string; // as written, in the singular
+  stem: string;
+}
+
+/** Checks a request against the limits and reads its words, each once. A refusal never repeats what was typed. */
+function asked(text: string, department: string): Term[] {
+  if (byteLen(text) > MAX_QUERY_BYTES) throw new Refusal(`query: ${byteLen(text)} bytes, at most ${MAX_QUERY_BYTES}; say it in a few words`);
+  if (byteLen(department) > MAX_DEPARTMENT_BYTES) {
+    throw new Refusal(`department: at most ${MAX_DEPARTMENT_BYTES} bytes; it is one word, for example finance`);
+  }
+  const terms = new Map<string, Term>();
+  for (const w of tokens(text)) {
+    const t = { word: singular(w), stem: stem(w) };
+    if (!STOP_WORDS.has(t.stem)) terms.set(`${t.word} ${t.stem}`, t);
+  }
+  if (terms.size > MAX_QUERY_TERMS) throw new Refusal(`query: ${terms.size} different words, at most ${MAX_QUERY_TERMS}; say it in a few words`);
+  return [...terms.values()];
+}
+
 /**
  * Finds employees: those in the department, when one is given, that match at least one word of the text. No words
- * lists everyone in the feed's order. A long request is cut: it cannot make the search slow.
+ * lists everyone in the feed's order. A request above the limits is refused.
  */
 export function search(entries: readonly Entry[], text: string, department = "", limit = DEFAULT_LIMIT): Found {
-  const asked = tokens(Buffer.from(text, "utf8").subarray(0, MAX_QUERY_BYTES).toString("utf8"))
-    .map((w) => ({ word: singular(w), stem: stem(w) })).filter((t) => !STOP_WORDS.has(t.stem)).slice(0, MAX_TERMS);
+  const terms = asked(text, department);
   const hits: { e: Entry; matched: number; score: number; named: number }[] = [];
   for (const e of entries) {
     if (department !== "" && department.toLowerCase() !== e.department.toLowerCase()) continue;
     const ix = indexOf(e), h = { e, matched: 0, score: 0, named: 0 };
-    for (const t of asked) {
+    for (const t of terms) {
       const s = score(ix, t.stem);
       if (s > 0) (h.matched++, (h.score += s));
       if (ix.named.has(t.word)) h.named++;
     }
-    if (h.matched > 0 || asked.length === 0) hits.push(h);
+    if (h.matched > 0 || terms.length === 0) hits.push(h);
   }
   hits.sort((a, b) => b.matched - a.matched || b.score - a.score || b.named - a.named); // stable: the feed's order last
   const n = Math.min(limit > 0 ? limit : DEFAULT_LIMIT, MAX_LIMIT);

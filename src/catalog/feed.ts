@@ -28,13 +28,14 @@ function parseTime(s: string): Date | null {
   return Number.isNaN(t) ? null : new Date(t);
 }
 
-/** Checks one entry the feed serves before any of its names is used: id, version, and that its urls are the catalog's. */
+/**
+ * Refuses a feed entry whose id or version is outside the grammar, or whose links (the employee's page, its picture)
+ * are not on the catalog's host: they are shown to a person and named in the notice as the source.
+ */
 function checkEntry(e: Entry, host: string): void {
   checkName(e.id, e.version);
-  const prefix = `https://${host}/`;
-  if (localPath(e.url, host) === null || (e.avatarUrl !== "" && !e.avatarUrl.startsWith(prefix)) ||
-    (e.cvUrl !== "" && !e.cvUrl.startsWith(prefix))) {
-    throw new Refusal(`${e.id}: url not on ${host}`);
+  for (const [name, url] of [["cv_url", e.cvUrl], ["avatar_url", e.avatarUrl]] as const) {
+    if (url !== "" && !url.startsWith(`https://${host}/`)) throw new Refusal(`${e.id}: ${name} not on ${host}`);
   }
 }
 
@@ -63,9 +64,10 @@ export function openFeed(feedBytes: Uint8Array, sig: Uint8Array, keys: readonly 
   const revoked = new Set(feed.revoked);
   const entries: Entry[] = [];
   for (const e of feed.bundles) {
-    // Bundle v1 reads employees only; a revoked version is never served.
-    if (e.kind !== "employee" || revoked.has(`${e.id}@${e.version}`)) continue;
+    if (e.kind !== "employee") continue; // bundle v1 reads employees only
     checkEntry(e, host);
+    if (revoked.has(`${e.id}@${e.version}`)) continue; // a revoked version is never served
+    if (localPath(e.url, host) === null) throw new Refusal(`${e.id}@${e.version}: url not on ${host}`);
     entries.push(e);
   }
   return { feed, key, expires, entries };

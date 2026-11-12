@@ -50,10 +50,11 @@ function isVersion(version) {
   return SEMVER.test(version);
 }
 function shortName(id) {
-  return id.slice(id.indexOf("/") + 1);
+  const cut = id.indexOf("/");
+  return cut < 0 ? "" : id.slice(cut + 1);
 }
 function isSkillFile(name) {
-  if (!SKILL_FILE.test(name) || name.startsWith(".") || name.endsWith(".")) return false;
+  if (!SKILL_FILE.test(name) || name.startsWith(".") || name.endsWith(".") || name.toLowerCase() === "skill.md") return false;
   const stem2 = name.split(".")[0] ?? "";
   return !WINDOWS_RESERVED.has(stem2.toUpperCase());
 }
@@ -64,12 +65,12 @@ function isBundlePath(path) {
   if (parts.length === 3) return parts[2] === "SKILL.md" || parts[2] === "LICENSE";
   return parts.length === 4 && SKILL_FOLDERS.has(parts[2] ?? "") && isSkillFile(parts[3] ?? "");
 }
-function checkName(id, version) {
-  if (!isID(id)) throw new Refusal(`a bundle id ${clip(id)} is not <publisher>/<name> in lowercase latin letters, digits and '-'`);
-  if (!isVersion(version)) throw new Refusal(`${id}: version ${clip(version)} is not MAJOR.MINOR.PATCH`);
+function clip(s, max2 = 130) {
+  return JSON.stringify(s.length > max2 ? s.slice(0, max2) : s);
 }
-function clip(s) {
-  return JSON.stringify(s.length > 80 ? s.slice(0, 80) + "…" : s);
+function checkName(id, version) {
+  if (!isID(id)) throw new Refusal(`id ${clip(id)}: want <publisher>/<name> in lowercase latin letters, digits and -`);
+  if (!isVersion(version)) throw new Refusal(`${id}: version ${clip(version, 40)}: want MAJOR.MINOR.PATCH`);
 }
 
 // src/commands/browse.ts
@@ -210,8 +211,8 @@ function assemble(e, name, l, files) {
   return t;
 }
 function checkTreePath(path) {
-  if (path === "" || path.startsWith("/") || /[\\\0]/.test(path) || cleanPath(path) !== path || path === ".." || path.startsWith("../")) {
-    throw new Refusal("a rendered file would land outside the employee's folder; nothing is written");
+  if (path === "" || path === "." || path.startsWith("/") || cleanPath(path) !== path || path === ".." || path.startsWith("../") || /[\\\u0000-\u001f\u007f-\u009f]/.test(path)) {
+    throw new Refusal(`${clip(path)}: a path that would leave the place the employee is installed to; nothing is written`);
   }
 }
 
@@ -346,7 +347,8 @@ var emoji = (department) => DEPARTMENT_EMOJI.get(trimSpace(department).toLowerCa
 var DEFAULT_LIMIT = 10;
 var MAX_LIMIT = 20;
 var MAX_QUERY_BYTES = 256;
-var MAX_TERMS = 16;
+var MAX_QUERY_TERMS = 16;
+var MAX_DEPARTMENT_BYTES = 64;
 var STOP_WORDS = /* @__PURE__ */ new Set([
   "a",
   "an",
@@ -419,18 +421,31 @@ function score(ix, word) {
   }
   return best;
 }
+function asked(text3, department) {
+  if (byteLen(text3) > MAX_QUERY_BYTES) throw new Refusal(`query: ${byteLen(text3)} bytes, at most ${MAX_QUERY_BYTES}; say it in a few words`);
+  if (byteLen(department) > MAX_DEPARTMENT_BYTES) {
+    throw new Refusal(`department: at most ${MAX_DEPARTMENT_BYTES} bytes; it is one word, for example finance`);
+  }
+  const terms = /* @__PURE__ */ new Map();
+  for (const w of tokens(text3)) {
+    const t = { word: singular(w), stem: stem(w) };
+    if (!STOP_WORDS.has(t.stem)) terms.set(`${t.word} ${t.stem}`, t);
+  }
+  if (terms.size > MAX_QUERY_TERMS) throw new Refusal(`query: ${terms.size} different words, at most ${MAX_QUERY_TERMS}; say it in a few words`);
+  return [...terms.values()];
+}
 function search(entries, text3, department = "", limit = DEFAULT_LIMIT) {
-  const asked = tokens(Buffer.from(text3, "utf8").subarray(0, MAX_QUERY_BYTES).toString("utf8")).map((w) => ({ word: singular(w), stem: stem(w) })).filter((t) => !STOP_WORDS.has(t.stem)).slice(0, MAX_TERMS);
+  const terms = asked(text3, department);
   const hits = [];
   for (const e of entries) {
     if (department !== "" && department.toLowerCase() !== e.department.toLowerCase()) continue;
     const ix = indexOf(e), h = { e, matched: 0, score: 0, named: 0 };
-    for (const t of asked) {
+    for (const t of terms) {
       const s = score(ix, t.stem);
       if (s > 0) h.matched++, h.score += s;
       if (ix.named.has(t.word)) h.named++;
     }
-    if (h.matched > 0 || asked.length === 0) hits.push(h);
+    if (h.matched > 0 || terms.length === 0) hits.push(h);
   }
   hits.sort((a, b) => b.matched - a.matched || b.score - a.score || b.named - a.named);
   const n = Math.min(limit > 0 ? limit : DEFAULT_LIMIT, MAX_LIMIT);
@@ -1209,7 +1224,7 @@ function openBundle(key, host, e, file) {
   }
   const files = /* @__PURE__ */ new Map();
   for (const [name, sum] of m.files) {
-    if (!isBundlePath(name)) throw new Refusal(`manifest lists ${clip(name)}: not a file a bundle may carry`);
+    if (!isBundlePath(name)) throw new Refusal(`${clip(name)} is not a file a bundle carries`);
     const b = all.get(name);
     if (!b || name.startsWith("signatures/") || hexSum(b) !== sum) throw new Refusal(`${name} missing or its sha256 differs`);
     files.set(name, b);
@@ -1239,9 +1254,8 @@ function parseTime(s) {
 }
 function checkEntry(e, host) {
   checkName(e.id, e.version);
-  const prefix = `https://${host}/`;
-  if (localPath(e.url, host) === null || e.avatarUrl !== "" && !e.avatarUrl.startsWith(prefix) || e.cvUrl !== "" && !e.cvUrl.startsWith(prefix)) {
-    throw new Refusal(`${e.id}: url not on ${host}`);
+  for (const [name, url] of [["cv_url", e.cvUrl], ["avatar_url", e.avatarUrl]]) {
+    if (url !== "" && !url.startsWith(`https://${host}/`)) throw new Refusal(`${e.id}: ${name} not on ${host}`);
   }
 }
 function openFeed(feedBytes, sig, keys, host, now, seen = () => 0) {
@@ -1263,8 +1277,10 @@ function openFeed(feedBytes, sig, keys, host, now, seen = () => 0) {
   const revoked = new Set(feed.revoked);
   const entries = [];
   for (const e of feed.bundles) {
-    if (e.kind !== "employee" || revoked.has(`${e.id}@${e.version}`)) continue;
+    if (e.kind !== "employee") continue;
     checkEntry(e, host);
+    if (revoked.has(`${e.id}@${e.version}`)) continue;
+    if (localPath(e.url, host) === null) throw new Refusal(`${e.id}@${e.version}: url not on ${host}`);
     entries.push(e);
   }
   return { feed, key, expires, entries };
@@ -1281,7 +1297,7 @@ function findEntry(vf, id) {
 }
 async function fetchEmployee(src, vf, host, e) {
   const rel = localPath(e.url, host);
-  if (rel === null) throw new Refusal(`${e.id}: url not on ${host}`);
+  if (rel === null) throw new Refusal(`${e.id}@${e.version}: url not on ${host}`);
   try {
     return openBundle(vf.key, host, e, await src.get(rel, MAX_BUNDLE));
   } catch (err2) {
@@ -1433,7 +1449,7 @@ var RECORD_FILE = ".harnsy/hire.json";
 function workspaceFiles(tree) {
   const home = workspaceFolder(tree.name) + "/", files = /* @__PURE__ */ new Map();
   for (const f of tree.files) {
-    if (!f.path.startsWith(home)) throw new Refusal("a rendered file would land outside the employee's folder; nothing is written");
+    if (!f.path.startsWith(home)) throw new Refusal("a path that would leave the employee's workspace; nothing is written");
     const rel = f.path.slice(home.length);
     checkTreePath(rel);
     files.set(rel, f.content);
@@ -1443,7 +1459,7 @@ function workspaceFiles(tree) {
 function target(root, rel) {
   checkTreePath(rel);
   const base = resolve(root), full = resolve(base, ...rel.split("/"));
-  if (!full.startsWith(base + sep)) throw new Refusal("a file would land outside the employee's folder; nothing is written");
+  if (!full.startsWith(base + sep)) throw new Refusal("a path that would leave the employee's workspace; nothing is written");
   let at = base;
   for (const part of ["", ...rel.split("/")]) {
     at = part === "" ? at : join2(at, part);
@@ -1612,13 +1628,15 @@ function said(r) {
   return text3 === "" ? `exit code ${r.code}` : text3;
 }
 function json(stdout) {
-  const at = stdout.search(/[[{]/);
-  if (at < 0) return void 0;
-  try {
-    return JSON.parse(stdout.slice(at));
-  } catch {
-    return void 0;
+  for (let at = stdout.search(/^[[{]/m); at >= 0; ) {
+    try {
+      return JSON.parse(stdout.slice(at));
+    } catch {
+      const next = stdout.slice(at + 1).search(/^[[{]/m);
+      at = next < 0 ? -1 : at + 1 + next;
+    }
   }
+  return void 0;
 }
 async function listAgents(run) {
   const r = await run(["agents", "list", "--json"]);

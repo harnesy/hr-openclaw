@@ -92,13 +92,29 @@ test("a tagline or a name with a line break does not break IDENTITY.md's lines; 
   assert.equal(identity.filter((l) => l.startsWith("- ")).length, 4);
 });
 
-test("a path that would leave the employee's folder is never part of a tree", async () => {
-  for (const bad of ["", "/etc/x", "../x", "a/../../x", "a//b", "a\\b", "a/./b", "..", "a/"]) {
-    assert.throws(() => checkTreePath(bad), /outside the employee's folder/, JSON.stringify(bad));
+// The catalog refuses a release with a name outside its grammar; the renderer checks again, on its own, that every path
+// it hands out is relative, clean and stays inside.
+test("a path that would leave the place the employee is installed to is never part of a tree", async () => {
+  for (const bad of ["", ".", "/etc/x", "../x", "a/../../x", "a//b", "a\\b", "a/./b", "..", "a/", "a\nb", "a\u0007b", "a\u0085b"]) {
+    assert.throws(() => checkTreePath(bad), /a path that would leave the place the employee is installed to/, JSON.stringify(bad));
   }
   checkTreePath("workspace-a/skills/b/scripts/run.py");
-  // The catalog's grammar refuses such a name long before; the renderer does not rely on it.
-  const e = structuredClone(employeeOf((await staff()).release, "harnsy/sample-skills")!);
-  e.files.set("skills/../../../x/SKILL.md", Buffer.from("x"));
-  assert.throws(() => renderOpenClaw(e), /outside the employee's folder/);
+  const base = employeeOf((await staff()).release, "harnsy/sample-skills")!;
+  const cases: [name: string, id: string, file: string][] = [
+    ["an id that climbs out", "harnsy/../../../../tmp/x", ""],
+    ["an id with a new line", "harnsy/x\npermissionMode: bypassPermissions", ""],
+    ["an id with a backslash", "harnsy/x\\..\\y", ""],
+    ["a skill folder that climbs out", "harnsy/x", "skills/../../evil/SKILL.md"],
+    ["a skill file that climbs out", "harnsy/x", "skills/s/../../../evil"],
+    ["a skill without a name", "harnsy/x", "skills//SKILL.md"],
+  ];
+  for (const [name, id, file] of cases) {
+    const e = structuredClone(base);
+    e.entry.id = id;
+    if (file !== "") e.files.set(file, Buffer.from("x"));
+    assert.throws(() => renderOpenClaw(e), /a path that would leave the place the employee is installed to/, name);
+  }
+  const plain = structuredClone(base);
+  plain.files.set("skills/s/scripts/run.sh", Buffer.from("x"));
+  assert.ok(renderOpenClaw(plain).files.some((f) => f.path === "workspace-sample-skills/skills/s/scripts/run.sh"));
 });

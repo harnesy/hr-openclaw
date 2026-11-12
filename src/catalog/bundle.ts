@@ -22,7 +22,7 @@ export function openBundle(key: Key, host: string, e: Entry, file: Uint8Array): 
   }
   const files = new Map<string, Uint8Array>();
   for (const [name, sum] of m.files) {
-    if (!isBundlePath(name)) throw new Refusal(`manifest lists ${clip(name)}: not a file a bundle may carry`);
+    if (!isBundlePath(name)) throw new Refusal(`${clip(name)} is not a file a bundle carries`);
     const b = all.get(name);
     if (!b || name.startsWith("signatures/") || hexSum(b) !== sum) throw new Refusal(`${name} missing or its sha256 differs`);
     files.set(name, b);

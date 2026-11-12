@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { search } from "../src/search.ts";
+import { MAX_DEPARTMENT_BYTES, MAX_QUERY_BYTES, MAX_QUERY_TERMS, search } from "../src/search.ts";
 import { bytes, Kit, type Files } from "./kit/kit.ts";
 import { load, tempDir } from "./kit/sample.ts";
 
@@ -69,11 +69,28 @@ test("«accountant» and «account executive» share a stem; the one the person 
   }
 });
 
-test("a very long request is cut, not searched word by word", async () => {
+/** n different made-up words, each of the given length. */
+const words = (n: number, length: number) => Array.from({ length: n }, (_, i) => "q" + String(i).padStart(length - 1, "0")).join(" ");
+
+// What a person types is short. A request above the limits is refused, not cut, and the refusal does not repeat what
+// was typed; the work of a search is at most MAX_QUERY_TERMS words per employee.
+test("a long request is refused", async () => {
   const all = await staff();
-  const long = Array.from({ length: 20000 }, (_, i) => `word${i}`).join(" ") + " accountant";
-  const start = performance.now();
-  assert.equal(search(all, long).total, 0, "the words past the cut are not read");
-  assert.ok(performance.now() - start < 200, "a long request must not make the search slow");
-  assert.equal(ids(search(all, "accountant " + long)), "accountant bookkeeper");
+  for (const [name, text, department, want] of [
+    ["64 KB of different words", words(8000, 7), "", /^query: /],
+    ["one byte over the query limit", "a".repeat(MAX_QUERY_BYTES + 1), "", /^query: 257 bytes, at most 256; say it in a few words$/],
+    ["one word more than the most", words(MAX_QUERY_TERMS + 1, 4), "", /^query: 17 different words, at most 16; say it in a few words$/],
+    ["a long department", "", "d".repeat(MAX_DEPARTMENT_BYTES + 1), /^department: /],
+  ] as const) {
+    let msg = "";
+    assert.throws(() => search(all, text, department), (err: Error) => { msg = err.message; return err.name === "Refusal"; }, name);
+    assert.match(msg, want, name);
+    assert.ok(msg.length <= 200 && !/q000|aaaa|dddd/.test(msg), `the refusal must be short and must not repeat the request: ${msg}`);
+  }
+  assert.deepEqual([MAX_QUERY_BYTES, MAX_QUERY_TERMS], [256, 16]);
+  const most = words(MAX_QUERY_TERMS, 15) + " ";
+  assert.equal(most.length, MAX_QUERY_BYTES);
+  search(all, most, "d".repeat(MAX_DEPARTMENT_BYTES));
+  // A word said again is one word: it neither counts against the limit nor adds to the score.
+  assert.equal(ids(search(all, "invoices ".repeat(28).trim())), "bookkeeper accountant");
 });

@@ -63,11 +63,11 @@ const refusals: Case[] = [
   { name: "a bundle url that climbs out of the release", want: "not on hr.harnsy.dev", do: (r) => {
     resign(r, (f) => { f.bundles[0].url = "https://hr.harnsy.dev/../../etc/passwd"; });
   } },
-  { name: "a page url on another host", want: "not on hr.harnsy.dev", do: (r) => {
-    resign(r, (f) => { f.bundles[0].cv_url = "https://evil.example/e/harnsy/reviewer"; });
+  { name: "a cv_url on another host", want: "harnsy/reviewer: cv_url not on hr.harnsy.dev", do: (r) => {
+    resign(r, (f) => { f.bundles[0].cv_url = "https://hr.harnsy.dev.evil.example/e/harnsy/reviewer"; });
   } },
-  { name: "a picture url on another host", want: "not on hr.harnsy.dev", do: (r) => {
-    resign(r, (f) => { f.bundles[0].avatar_url = "https://evil.example/a.png"; });
+  { name: "an avatar_url on another host", want: "harnsy/reviewer: avatar_url not on hr.harnsy.dev", do: (r) => {
+    resign(r, (f) => { f.bundles[0].avatar_url = "http://hr.harnsy.dev/packs/harnsy/reviewer/avatar.png"; });
   } },
   { name: "the bundle file is another size", want: "size or sha256", do: (r) => resign(r, (f) => { f.bundles[0].size++; }) },
   { name: "the bundle file has another hash", want: "size or sha256", do: (r) => {

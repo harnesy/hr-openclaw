@@ -38,15 +38,20 @@ function said(r: RunResult): string {
   return text === "" ? `exit code ${r.code}` : text;
 }
 
-/** Reads the JSON a command printed; undefined when it printed something else. */
-function json(stdout: string): unknown {
-  const at = stdout.search(/[[{]/);
-  if (at < 0) return undefined;
-  try {
-    return JSON.parse(stdout.slice(at));
-  } catch {
-    return undefined;
+/**
+ * Reads the JSON a command printed; undefined when it printed something else. A line or two of another kind before
+ * the JSON (a warning, a notice) does not hide it.
+ */
+export function json(stdout: string): unknown {
+  for (let at = stdout.search(/^[[{]/m); at >= 0;) {
+    try {
+      return JSON.parse(stdout.slice(at));
+    } catch {
+      const next = stdout.slice(at + 1).search(/^[[{]/m);
+      at = next < 0 ? -1 : at + 1 + next;
+    }
   }
+  return undefined;
 }
 
 /** `openclaw agents list --json`. */

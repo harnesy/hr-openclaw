@@ -20,7 +20,7 @@ export function findEntry(vf: VerifiedFeed, id: string): Entry | undefined {
 /** Fetches one bundle of a verified feed and verifies it against its entry. */
 export async function fetchEmployee(src: Source, vf: VerifiedFeed, host: string, e: Entry): Promise<Employee> {
   const rel = localPath(e.url, host);
-  if (rel === null) throw new Refusal(`${e.id}: url not on ${host}`);
+  if (rel === null) throw new Refusal(`${e.id}@${e.version}: url not on ${host}`);
   try {
     return openBundle(vf.key, host, e, await src.get(rel, MAX_BUNDLE));
   } catch (err) {

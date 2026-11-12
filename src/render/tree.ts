@@ -2,7 +2,7 @@
 // byte for byte, and the notice with its licence and credits. A target differs only in where the files go and how the
 // persona is split; this plugin has one target, an OpenClaw agent workspace, and the layout leaves room for another
 // (an OpenClaw Template folder) without a rewrite.
-import { CASEBOOK_FILE } from "../catalog/grammar.ts";
+import { CASEBOOK_FILE, clip } from "../catalog/grammar.ts";
 import type { Employee } from "../catalog/types.ts";
 import { Refusal } from "../catalog/types.ts";
 import { cleanPath, compareBytes } from "../gotext.ts";
@@ -65,11 +65,12 @@ export function assemble(e: Employee, name: string, l: Layout, files: TreeFile[]
 }
 
 /**
- * The second gate, independent of the catalog's grammar: every path of a tree is relative, clean and stays inside the
- * place the tree is written to.
+ * The second gate, which does not rest on the catalog's grammar: every path of a tree is relative, clean, with forward
+ * slashes, without «..» and without a control character, so it stays inside the place the tree is written to.
  */
 export function checkTreePath(path: string): void {
-  if (path === "" || path.startsWith("/") || /[\\\0]/.test(path) || cleanPath(path) !== path || path === ".." || path.startsWith("../")) {
-    throw new Refusal("a rendered file would land outside the employee's folder; nothing is written");
+  if (path === "" || path === "." || path.startsWith("/") || cleanPath(path) !== path || path === ".." || path.startsWith("../") ||
+    /[\\\u0000-\u001f\u007f-\u009f]/.test(path)) {
+    throw new Refusal(`${clip(path)}: a path that would leave the place the employee is installed to; nothing is written`);
   }
 }

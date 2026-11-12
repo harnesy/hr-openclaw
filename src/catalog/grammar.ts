@@ -30,12 +30,16 @@ export function isVersion(version: string): boolean {
 
 /** The id without its publisher: harnsy/accountant → accountant. */
 export function shortName(id: string): string {
-  return id.slice(id.indexOf("/") + 1);
+  const cut = id.indexOf("/");
+  return cut < 0 ? "" : id.slice(cut + 1);
 }
 
-/** A file name inside a skill's scripts/, references/ or assets/: a portable name no file system reads as another. */
+/**
+ * A file name inside a skill's scripts/, references/ or assets/: a portable name no file system reads as another, not
+ * hidden, not ending in a dot, not a device name on Windows, not SKILL.md in any letter case.
+ */
 function isSkillFile(name: string): boolean {
-  if (!SKILL_FILE.test(name) || name.startsWith(".") || name.endsWith(".")) return false;
+  if (!SKILL_FILE.test(name) || name.startsWith(".") || name.endsWith(".") || name.toLowerCase() === "skill.md") return false;
   const stem = name.split(".")[0] ?? "";
   return !WINDOWS_RESERVED.has(stem.toUpperCase());
 }
@@ -49,13 +53,13 @@ export function isBundlePath(path: string): boolean {
   return parts.length === 4 && SKILL_FOLDERS.has(parts[2] ?? "") && isSkillFile(parts[3] ?? "");
 }
 
-/** Refuses an id or a version outside the grammar. The value is not echoed whole: it may be anything. */
-export function checkName(id: string, version: string): void {
-  if (!isID(id)) throw new Refusal(`a bundle id ${clip(id)} is not <publisher>/<name> in lowercase latin letters, digits and '-'`);
-  if (!isVersion(version)) throw new Refusal(`${id}: version ${clip(version)} is not MAJOR.MINOR.PATCH`);
+/** A value for an error message: quoted, cut short, control characters shown as escapes. It may be anything. */
+export function clip(s: string, max = 130): string {
+  return JSON.stringify(s.length > max ? s.slice(0, max) : s);
 }
 
-/** A value for an error message: quoted, cut short, control characters shown as escapes. */
-export function clip(s: string): string {
-  return JSON.stringify(s.length > 80 ? s.slice(0, 80) + "…" : s);
+/** Refuses an id or a version outside the grammar. */
+export function checkName(id: string, version: string): void {
+  if (!isID(id)) throw new Refusal(`id ${clip(id)}: want <publisher>/<name> in lowercase latin letters, digits and -`);
+  if (!isVersion(version)) throw new Refusal(`${id}: version ${clip(version, 40)}: want MAJOR.MINOR.PATCH`);
 }

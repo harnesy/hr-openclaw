@@ -10,8 +10,8 @@ test("every write lands inside the workspace: a path that is not clean or climbs
   const root = join(tempDir(), "workspace-a");
   assert.equal(target(root, "skills/b/scripts/run.py"), join(root, "skills", "b", "scripts", "run.py"));
   for (const bad of ["../x", "a/../../x", "/etc/passwd", "a//b", "a\\..\\b", "", ".", "..", "a/./b", "a/"]) {
-    assert.throws(() => target(root, bad), /outside the employee's folder/, JSON.stringify(bad));
-    assert.throws(() => writeNew(root, bad, bytes("x")), /outside the employee's folder/);
+    assert.throws(() => target(root, bad), /a path that would leave/, JSON.stringify(bad));
+    assert.throws(() => writeNew(root, bad, bytes("x")), /a path that would leave/);
   }
   assert.equal(existsSync(root), false, "a refused write makes no folder");
 });

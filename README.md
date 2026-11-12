@@ -22,16 +22,17 @@ From a release tag (valid once a tag exists; none is published yet):
 openclaw plugins install git:github.com/harnesy/hr-openclaw@<tag>
 ```
 
-OpenClaw treats a git source as untrusted: it shows what the plugin declares (one terminal command, one chat command)
-and asks you to confirm. In a script: `--force --accept-capabilities`.
-
 From a checkout of this repository:
 
 ```
-openclaw plugins install <path to the checkout> --force --accept-capabilities
+openclaw plugins install <path to the checkout>
 ```
 
+OpenClaw warns that a source outside ClawHub is not reviewed, and wants a confirmation. In a script, add
+`--force --accept-capabilities`. What the plugin declares is one terminal command and one chat command.
+
 Nothing is built or downloaded at install: the built plugin is in `dist/`, and it has no dependencies to install.
+`openclaw plugins inspect harnsy-hr --runtime --json` shows what OpenClaw loaded.
 
 ## Commands
 
@@ -44,13 +45,14 @@ In a terminal:
 | `openclaw harnsy-hr hire <id>` | Shows the card, what the employee needs, every file and the full notice, then asks. After a yes it writes the files and adds the agent. `--yes` for scripts. |
 | `openclaw harnsy-hr update <id>` | Fetches and verifies the employee again and brings the files this plugin wrote to the current version. `--yes`, `--replace-edited`. |
 | `openclaw harnsy-hr list` | The employees hired on this machine. Reads the disk only. |
-| `openclaw harnsy-hr fire <id>` | After a yes, has OpenClaw delete the agent (`openclaw agents delete`; OpenClaw moves its workspace, state and transcripts to the Trash). `--yes` for scripts. |
+| `openclaw harnsy-hr fire <id>` | After a yes, has OpenClaw delete the agent (`openclaw agents delete`: the agent and its workspace folder go; OpenClaw's documentation says they are moved to the Trash). Only an agent this plugin hired. `--yes` for scripts. |
 
 An id is `<publisher>/<name>`, for example `harnsy/accountant`.
 
 In a chat, `/harnsy-hr search <words>`, `/harnsy-hr show <id>` and `/harnsy-hr list` answer with text. `hire`,
 `update` and `fire` are not run from a chat: they write files and wait for your yes, so the chat command answers with
-the terminal command to type.
+the terminal command to type. (OpenClaw registers the chat command, and this repository's tests run it; it has not
+been tried in a live channel yet.)
 
 The plugin adds nothing else: no tools for the model, no hooks, no background service. It runs only when you call it.
 

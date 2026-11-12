@@ -26,7 +26,7 @@ export interface HireRecord {
 export function workspaceFiles(tree: Tree): Map<string, Uint8Array> {
   const home = workspaceFolder(tree.name) + "/", files = new Map<string, Uint8Array>();
   for (const f of tree.files) {
-    if (!f.path.startsWith(home)) throw new Refusal("a rendered file would land outside the employee's folder; nothing is written");
+    if (!f.path.startsWith(home)) throw new Refusal("a path that would leave the employee's workspace; nothing is written");
     const rel = f.path.slice(home.length);
     checkTreePath(rel);
     files.set(rel, f.content);
@@ -41,7 +41,7 @@ export function workspaceFiles(tree: Tree): Map<string, Uint8Array> {
 export function target(root: string, rel: string): string {
   checkTreePath(rel);
   const base = resolve(root), full = resolve(base, ...rel.split("/"));
-  if (!full.startsWith(base + sep)) throw new Refusal("a file would land outside the employee's folder; nothing is written");
+  if (!full.startsWith(base + sep)) throw new Refusal("a path that would leave the employee's workspace; nothing is written");
   let at = base;
   for (const part of ["", ...rel.split("/")]) {
     at = part === "" ? at : join(at, part);
