@@ -39,11 +39,12 @@ function checkEntry(e: Entry, host: string): void {
 }
 
 /**
- * Verifies feed.json against feed.json.sig under one of the pinned keys, for the catalog at host, as of now. minSeq is
- * the highest feed sequence this machine has seen: an older feed is a replay and is refused. Any fault refuses the
- * whole feed.
+ * Verifies feed.json against feed.json.sig under one of the pinned keys, for the catalog at host, as of now. seen gives
+ * the highest feed sequence this machine has seen under a key: an older feed is a replay and is refused. Any fault
+ * refuses the whole feed.
  */
-export function openFeed(feedBytes: Uint8Array, sig: Uint8Array, keys: readonly Key[], host: string, now: Date, minSeq = 0): VerifiedFeed {
+export function openFeed(feedBytes: Uint8Array, sig: Uint8Array, keys: readonly Key[], host: string, now: Date,
+  seen: (kid: string) => number = () => 0): VerifiedFeed {
   const kid = feedSigKid(sig);
   const key = keys.find((k) => k.kid === kid);
   if (!key) {
@@ -55,6 +56,7 @@ export function openFeed(feedBytes: Uint8Array, sig: Uint8Array, keys: readonly 
   if (feed.v !== 1 || expires === null || expires.getTime() <= now.getTime()) {
     throw new Refusal(`feed.json: v ${feed.v}, expires ${clip(feed.expires)} (now ${now.toISOString()})`);
   }
+  const minSeq = seen(key.kid);
   if (feed.seq < minSeq) {
     throw new Refusal(`feed.json: seq ${feed.seq} is older than seq ${minSeq} this machine has already seen; an old feed is refused`);
   }

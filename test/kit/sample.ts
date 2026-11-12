@@ -1,5 +1,5 @@
 // A small employee with one skill, and helpers the catalog tests share.
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { dirSource } from "../../src/catalog/source.ts";
@@ -23,9 +23,16 @@ export function sample(name: string): Files {
   ]);
 }
 
-/** A fresh empty folder that the test run removes with the system's temporary files. */
+const made: string[] = [];
+process.on("exit", () => {
+  for (const dir of made) rmSync(dir, { recursive: true, force: true });
+});
+
+/** A fresh empty folder, removed when the test run ends. */
 export function tempDir(): string {
-  return mkdtempSync(join(tmpdir(), "hr-openclaw-"));
+  const dir = mkdtempSync(join(tmpdir(), "hr-openclaw-"));
+  made.push(dir);
+  return dir;
 }
 
 /** Loads the release in dir under the kit's key, as of the kit's now. */

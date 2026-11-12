@@ -1,0 +1,28 @@
+{
+  "id": "harnsy-hr",
+  "name": "harnsy HR",
+  "description": "Hire AI employees from the signed catalog hr.harnsy.dev as OpenClaw agents",
+  "version": "0.1.0",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  },
+  "activation": {
+    "onStartup": false,
+    "onCommands": ["harnsy-hr"]
+  },
+  "cliCommands": [
+    {
+      "name": "harnsy-hr",
+      "description": "Hire AI employees from the signed catalog hr.harnsy.dev as OpenClaw agents",
+      "hasSubcommands": true
+    }
+  ],
+  "commandAliases": [
+    {
+      "name": "harnsy-hr",
+      "kind": "runtime-slash"
+    }
+  ]
+}

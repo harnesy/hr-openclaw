@@ -1,0 +1,9 @@
+hr-openclaw
+Copyright (c) 2026 Pavel Buchnev (harnsy). Licensed under the MIT licence (see LICENSE).
+
+The built plugin (dist/index.js) contains the following library. It is under its own licence. Full text:
+THIRD_PARTY_LICENSES.
+
+- fflate — Arjun Barrett (MIT): it unpacks the files of an employee bundle
+
+Employees of the hr.harnsy.dev catalog are not part of this project and are not under its licence.

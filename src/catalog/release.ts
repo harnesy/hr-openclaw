@@ -6,10 +6,10 @@ import type { Employee, Entry, Key, VerifiedFeed } from "./types.ts";
 import { MAX_BUNDLE, MAX_FEED, Refusal } from "./types.ts";
 
 /** Fetches v1/feed.json and its signature and verifies the feed (see openFeed). */
-export async function fetchFeed(src: Source, keys: readonly Key[], host: string, now: Date, minSeq = 0): Promise<VerifiedFeed> {
+export async function fetchFeed(src: Source, keys: readonly Key[], host: string, now: Date, seen?: (kid: string) => number): Promise<VerifiedFeed> {
   const feed = await src.get("v1/feed.json", MAX_FEED);
   const sig = await src.get("v1/feed.json.sig", MAX_FEED);
-  return openFeed(feed, sig, keys, host, now, minSeq);
+  return openFeed(feed, sig, keys, host, now, seen);
 }
 
 /** The entry of id in a verified feed, or undefined: not listed, not an employee, or revoked. */

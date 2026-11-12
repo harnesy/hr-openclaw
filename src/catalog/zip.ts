@@ -1,7 +1,7 @@
 // Reads a .harnsy file (a zip) within the format's limits: at most MAX_ZIP_FILES entries, MAX_BUNDLE bytes unpacked
 // whatever the headers say, no name twice, no name that leaves the bundle, plain files only. The whole file is in
 // memory; nothing is written to disk here.
-import { Inflate } from "fflate";
+import { Inflate } from "fflate/browser";
 import { cleanPath } from "../gotext.ts";
 import { clip } from "./grammar.ts";
 import { MAX_BUNDLE, MAX_ZIP_FILES, Refusal } from "./types.ts";
