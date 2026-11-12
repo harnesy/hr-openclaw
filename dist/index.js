@@ -1315,8 +1315,9 @@ async function fetchEmployee(src, vf, host, e) {
 // src/catalog/source.ts
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
-var TIMEOUT_MS = 3e4;
-function httpSource(base, userAgent) {
+var IDLE_MS = 3e4;
+var DEADLINE_MS = 6e4;
+function httpSource(base, userAgent, deadlineMs = DEADLINE_MS) {
   const root = new URL(base.endsWith("/") ? base : base + "/");
   if (root.protocol !== "https:" && root.protocol !== "http:") throw new Refusal("the catalog address is not http(s)");
   const request = root.protocol === "https:" ? httpsRequest : httpRequest;
@@ -1325,7 +1326,7 @@ function httpSource(base, userAgent) {
       const url = new URL(path.split("/").map(encodeURIComponent).join("/"), root);
       return new Promise((resolve3, reject) => {
         const refuse = (why) => reject(new Refusal(`${url.host}/${path}: ${why}`));
-        const req = request(url, { method: "GET", headers: { "User-Agent": userAgent }, agent: false, timeout: TIMEOUT_MS }, (res) => {
+        const req = request(url, { method: "GET", headers: { "User-Agent": userAgent }, agent: false, timeout: IDLE_MS }, (res) => {
           if (res.statusCode !== 200) {
             res.destroy();
             return refuse(`the catalog answered ${res.statusCode}`);
@@ -1342,6 +1343,10 @@ function httpSource(base, userAgent) {
           res.on("end", () => resolve3(Buffer.concat(chunks)));
           res.on("error", () => refuse("the download broke off"));
         });
+        AbortSignal.timeout(deadlineMs).addEventListener("abort", () => {
+          refuse(`not whole after ${deadlineMs / 1e3} seconds; the download was stopped`);
+          req.destroy();
+        }, { once: true });
         req.on("timeout", () => req.destroy(new Error("timeout")));
         req.on("error", (err2) => refuse(`cannot be fetched (${err2.message})`));
         req.end();

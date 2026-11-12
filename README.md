@@ -120,8 +120,10 @@ safe for your purpose: read what you hire.
 
 Only `GET` requests to the catalog, `https://hr.harnsy.dev`: the feed, its signature, and the bundle of the employee
 you asked for. Each carries one header of the plugin's, `User-Agent: hr-openclaw/<version>`. No cookies, no account,
-no search words, nothing about you or your machine; redirects are not followed. There is no telemetry, and the plugin
-never updates itself: a new version arrives only when you install it.
+no search words, nothing about you or your machine; redirects are not followed. Each file has 60 seconds to arrive
+whole, and a connection that is silent for 30 seconds is dropped: either way the command stops with one sentence and
+writes nothing. There is no telemetry, and the plugin never updates itself: a new version arrives only when you install
+it.
 
 `list` and the chat's `list` use no network. The catalog's server sees what any web server sees of a download (address,
 time, path, the User-Agent above).

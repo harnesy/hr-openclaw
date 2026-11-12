@@ -36,13 +36,14 @@ export function dirSource(dir: string): Source {
   };
 }
 
-const TIMEOUT_MS = 30_000;
+const IDLE_MS = 30_000; // a connection that goes silent this long is dropped
+export const DEADLINE_MS = 60_000; // one file has this long to arrive whole, however steadily it drips
 
 /**
  * The catalog over the network: GET only, one header of ours (User-Agent), no cookies, no redirects followed, nothing
- * sent in a body or a query.
+ * sent in a body or a query. A file that is not whole within deadlineMs is given up.
  */
-export function httpSource(base: string, userAgent: string): Source {
+export function httpSource(base: string, userAgent: string, deadlineMs = DEADLINE_MS): Source {
   const root = new URL(base.endsWith("/") ? base : base + "/");
   if (root.protocol !== "https:" && root.protocol !== "http:") throw new Refusal("the catalog address is not http(s)");
   const request = root.protocol === "https:" ? httpsRequest : httpRequest;
@@ -51,7 +52,7 @@ export function httpSource(base: string, userAgent: string): Source {
       const url = new URL(path.split("/").map(encodeURIComponent).join("/"), root);
       return new Promise((resolve, reject) => {
         const refuse = (why: string) => reject(new Refusal(`${url.host}/${path}: ${why}`));
-        const req = request(url, { method: "GET", headers: { "User-Agent": userAgent }, agent: false, timeout: TIMEOUT_MS }, (res) => {
+        const req = request(url, { method: "GET", headers: { "User-Agent": userAgent }, agent: false, timeout: IDLE_MS }, (res) => {
           if (res.statusCode !== 200) {
             res.destroy();
             return refuse(`the catalog answered ${res.statusCode}`);
@@ -68,6 +69,11 @@ export function httpSource(base: string, userAgent: string): Source {
           res.on("end", () => resolve(Buffer.concat(chunks)));
           res.on("error", () => refuse("the download broke off"));
         });
+        // The first word wins: once the promise is settled, a later refusal or a late deadline changes nothing.
+        AbortSignal.timeout(deadlineMs).addEventListener("abort", () => {
+          refuse(`not whole after ${deadlineMs / 1000} seconds; the download was stopped`);
+          req.destroy();
+        }, { once: true });
         req.on("timeout", () => req.destroy(new Error("timeout")));
         req.on("error", (err) => refuse(`cannot be fetched (${err.message})`));
         req.end();

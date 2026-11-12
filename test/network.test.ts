@@ -5,7 +5,7 @@ import type { AddressInfo } from "node:net";
 import { join } from "node:path";
 import { after, test } from "node:test";
 import { hireCommand } from "../src/commands/hire.ts";
-import { httpSource } from "../src/catalog/source.ts";
+import { DEADLINE_MS, httpSource } from "../src/catalog/source.ts";
 import { USER_AGENT, VERSION } from "../src/version.ts";
 import { refusal } from "./kit/sample.ts";
 import { staff } from "./kit/staff.ts";
@@ -79,4 +79,27 @@ test("the network source refuses what is not a plain 200 within the size it was 
   assert.equal(Buffer.from(await src.get("a b/c?d", 100)).toString(), "escaped", "a path is sent as a path, never as a query");
   assert.match(await refusal(httpSource("http://127.0.0.1:1", USER_AGENT).get("v1/feed.json", 100)), /cannot be fetched/);
   assert.throws(() => httpSource("file:///etc", USER_AGENT), /not http\(s\)/);
+});
+
+test("a download has one deadline for the whole file: an address that drips, or never answers, is given up in one plain sentence", async () => {
+  let open = 0;
+  const server = createServer((req, res) => {
+    open++;
+    res.on("close", () => { open--; });
+    if (req.url === "/silent") return; // the request is taken and never answered
+    res.writeHead(200);
+    const drip = setInterval(() => res.write("x"), 20); // never silent for long, never done
+    res.on("close", () => clearInterval(drip));
+  });
+  servers.push(server);
+  await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
+  const host = `127.0.0.1:${(server.address() as AddressInfo).port}`, src = httpSource(`http://${host}`, USER_AGENT, 300);
+  for (const path of ["drip", "silent"]) {
+    const started = Date.now();
+    assert.equal(await refusal(src.get(path, 1 << 20)), `${host}/${path}: not whole after 0.3 seconds; the download was stopped`);
+    assert.ok(Date.now() - started < 5000, "it does not wait for the idle timeout");
+  }
+  for (let i = 0; open > 0 && i < 100; i++) await new Promise((done) => setTimeout(done, 10));
+  assert.equal(open, 0, "the connection is closed, not left to drip");
+  assert.equal(DEADLINE_MS, 60_000, "as shipped: 60 seconds for one file");
 });
