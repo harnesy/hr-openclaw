@@ -40,7 +40,7 @@ In a terminal:
 
 | Command | What it does |
 |---|---|
-| `openclaw harnsy-hr search [words…]` | Search the catalog by words (a role, a skill, a need). `--department <name>`, `--limit <n>` (at most 20). No words lists everyone. The words stay on your machine. |
+| `openclaw harnsy-hr search [words…]` | Search the catalog by a few words (a role, a skill, a need; at most 256 bytes and 16 different words). `--department <name>`, `--limit <n>` (at most 20). No words lists everyone. The words stay on your machine. |
 | `openclaw harnsy-hr show <id>` | One employee: what it needs, the files a hire writes, its notice. |
 | `openclaw harnsy-hr hire <id>` | Shows the card, what the employee needs, every file and the full notice, then asks. After a yes it writes the files and adds the agent. `--yes` for scripts. |
 | `openclaw harnsy-hr update <id>` | Fetches and verifies the employee again and brings the files this plugin wrote to the current version. `--yes`, `--replace-edited`. |
