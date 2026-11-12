@@ -7,6 +7,7 @@ export interface RawEntry {
   name: string;
   data: Uint8Array;
   store?: boolean; // keep the bytes as they are instead of deflating
+  packed?: Uint8Array; // the packed bytes to write instead of the deflate of data (the headers still describe data)
   creator?: number; // «version made by»: the high byte is the system (3 is unix)
   attrs?: number; // external attributes
   size?: number; // the unpacked size the headers claim, when not the true one
@@ -20,7 +21,7 @@ export function zipRaw(entries: RawEntry[]): Buffer {
   let offset = 0;
   for (const e of entries) {
     const name = Buffer.from(e.name, "utf8");
-    const packed = e.store ? Buffer.from(e.data) : deflateRawSync(e.data);
+    const packed = e.packed ? Buffer.from(e.packed) : e.store ? Buffer.from(e.data) : deflateRawSync(e.data);
     const common = Buffer.alloc(26);
     common.writeUInt16LE(20, 0); // version needed
     common.writeUInt16LE(e.flags ?? 0x800, 2); // names are UTF-8

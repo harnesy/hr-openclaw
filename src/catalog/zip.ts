@@ -1,7 +1,7 @@
 // Reads a .harnsy file (a zip) within the format's limits: at most MAX_ZIP_FILES entries, MAX_BUNDLE bytes unpacked
 // whatever the headers say, no name twice, no name that leaves the bundle, plain files only. The whole file is in
 // memory; nothing is written to disk here.
-import { Inflate } from "fflate/browser";
+import { inflateRawSync } from "node:zlib";
 import { cleanPath } from "../gotext.ts";
 import { clip } from "./grammar.ts";
 import { MAX_BUNDLE, MAX_ZIP_FILES, Refusal } from "./types.ts";
@@ -9,7 +9,6 @@ import { MAX_BUNDLE, MAX_ZIP_FILES, Refusal } from "./types.ts";
 const END_SIG = 0x06054b50, DIR_SIG = 0x02014b50, LOCAL_SIG = 0x04034b50;
 const END_LEN = 22, DIR_LEN = 46, LOCAL_LEN = 30;
 const STORE = 0, DEFLATE = 8;
-const SLICE = 4096; // packed bytes handed to the inflater at a time: bounds what one step can unpack
 
 interface ZipEntry {
   name: string;
@@ -23,6 +22,7 @@ interface ZipEntry {
 }
 
 const notZip = (why: string) => new Refusal(`not a zip file: ${why}`);
+const tooBig = () => new Refusal(`unpacks to more than ${MAX_BUNDLE} bytes`);
 
 /** Finds the end-of-central-directory record: the last 22 bytes, or earlier when the zip has a comment. */
 function findEnd(v: DataView): number {
@@ -89,39 +89,36 @@ function crc32(b: Uint8Array): number {
   return (c ^ 0xffffffff) >>> 0;
 }
 
-/** Unpacks deflated bytes, stopping as soon as more than max bytes came out. */
-function inflate(packed: Uint8Array, max: number): Uint8Array {
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  const stream = new Inflate((chunk) => {
-    total += chunk.length;
-    chunks.push(chunk);
-  });
-  for (let at = 0; total <= max; at += SLICE) {
-    const last = at + SLICE >= packed.length;
-    stream.push(packed.subarray(at, at + SLICE), last);
-    if (last) break;
+/**
+ * Unpacks deflated bytes with Node's own zlib, which stops as soon as more than max bytes would come out: null then.
+ * Bytes after the stream's end are not read.
+ */
+function inflate(packed: Uint8Array, max: number): Uint8Array | null {
+  try {
+    const out = inflateRawSync(packed, { maxOutputLength: max + 1 });
+    return out.length > max ? null : out;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ERR_BUFFER_TOO_LARGE") return null;
+    throw err;
   }
-  return Buffer.concat(chunks);
 }
 
-/** Reads one entry's bytes, at most left+1 of them: the caller refuses the bundle when more than left came out. */
+/** Reads one entry's bytes, at most left of them: more than the bundle may still unpack to refuses the bundle. */
 function readEntry(file: Uint8Array, v: DataView, e: ZipEntry, left: number): Uint8Array {
   if (e.offset + LOCAL_LEN > file.length || v.getUint32(e.offset, true) !== LOCAL_SIG) throw notZip(`${clip(e.name)} has no header`);
   const start = e.offset + LOCAL_LEN + v.getUint16(e.offset + 26, true) + v.getUint16(e.offset + 28, true);
   if (start + e.packed > file.length) throw notZip(`${clip(e.name)} is cut short`);
   if ((e.flags & 1) !== 0 || (e.method !== STORE && e.method !== DEFLATE)) throw new Refusal(`zip entry ${clip(e.name)}: not stored or deflated`);
-  const packed = file.subarray(start, start + e.packed);
-  let out: Uint8Array;
+  const packed = file.subarray(start, start + e.packed), differs = new Refusal(`zip entry ${clip(e.name)}: its size or checksum differs from its header`);
+  let out: Uint8Array | null;
   try {
-    out = e.method === STORE ? packed.subarray(0, left + 1) : inflate(packed, Math.min(left, e.size));
+    // A deflated entry is unpacked up to what its header says or what the bundle may still hold, whichever is less.
+    out = e.method === STORE ? (packed.length > left ? null : packed) : inflate(packed, Math.min(left, e.size));
   } catch {
     throw new Refusal(`zip entry ${clip(e.name)} does not unpack`);
   }
-  if (out.length > left) return out;
-  if (out.length !== e.size || (e.crc32 !== 0 && crc32(out) !== e.crc32)) {
-    throw new Refusal(`zip entry ${clip(e.name)}: its size or checksum differs from its header`);
-  }
+  if (out === null) throw e.method === STORE || e.size >= left ? tooBig() : differs;
+  if (out.length !== e.size || (e.crc32 !== 0 && crc32(out) !== e.crc32)) throw differs;
   return out;
 }
 
@@ -137,7 +134,7 @@ export function unzip(file: Uint8Array): Map<string, Uint8Array> {
     if (!safeName(e.name) || !e.regular) throw new Refusal(`zip entry ${clip(e.name)}: not a plain file inside the bundle`);
     const b = readEntry(file, v, e, left);
     left -= b.length;
-    if (left < 0) throw new Refusal(`unpacks to more than ${MAX_BUNDLE} bytes`);
+    if (left < 0) throw tooBig();
     files.set(e.name, b);
   }
   return files;

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { createDeflateRaw, deflateRawSync } from "node:zlib";
 import { MAX_BUNDLE, MAX_ZIP_FILES } from "../src/catalog/types.ts";
 import { hexSum } from "../src/catalog/verify.ts";
 import { unzip } from "../src/catalog/zip.ts";
@@ -87,4 +88,47 @@ test("bytes that are not a zip are refused", () => {
   }
   const cut = zipRaw([{ name: "a", data: bytes("data") }]);
   assert.throws(() => unzip(cut.subarray(10)), /not a zip file|does not unpack/);
+});
+
+// What a different inflater could read differently. Each verdict below is the one the reader has always given.
+test("a deflated entry: a stream cut short, bytes after its end, one byte over what it may be", () => {
+  const data = Buffer.from("the quick brown fox jumps over the lazy dog. ".repeat(40)), whole = deflateRawSync(data);
+  const read = (e: Partial<RawEntry>) => unzip(zipRaw([{ name: "a", data, ...e }])).get("a")!;
+  assert.deepEqual(Buffer.from(read({})), data);
+  for (const cut of [1, 2, 5, whole.length >> 1, whole.length - 1]) {
+    assert.throws(() => read({ packed: whole.subarray(0, whole.length - cut) }), /zip entry "a" does not unpack/, `cut by ${cut}`);
+  }
+  assert.throws(() => read({ packed: Buffer.alloc(0) }), /zip entry "a" does not unpack/, "no stream at all");
+  assert.throws(() => read({ packed: Buffer.from([0x07, 0xff, 0xff]) }), /zip entry "a" does not unpack/, "a block type that does not exist");
+  for (const tail of [Buffer.from([0]), Buffer.from("junk after the end"), whole]) {
+    assert.deepEqual(Buffer.from(read({ packed: Buffer.concat([whole, tail]) })), data, "bytes after the stream's end, inside the packed length, are not read");
+  }
+  assert.throws(() => read({ size: data.length - 1 }), /its size or checksum differs from its header/, "one byte more than the header says");
+  assert.throws(() => read({ size: data.length + 1 }), /its size or checksum differs from its header/, "one byte fewer than the header says");
+});
+
+test("the budget of a bundle is exact: 8 MB unpack, one byte more does not", () => {
+  const half = Buffer.alloc(MAX_BUNDLE / 2, "h");
+  assert.equal(unzip(zipRaw([{ name: "a", data: half }, { name: "b", data: half }])).size, 2);
+  assert.throws(() => unzip(zipRaw([{ name: "a", data: half }, { name: "b", data: half }, { name: "c", data: x }])), /unpacks to more than 8388608 bytes/);
+  assert.throws(() => unzip(zipRaw([{ name: "a", data: Buffer.alloc(MAX_BUNDLE + 1, "h") }])), /unpacks to more than 8388608 bytes/);
+  assert.throws(() => unzip(zipRaw([{ name: "a", data: half }, { name: "b", data: Buffer.alloc(MAX_BUNDLE / 2 + 1, "h") }])), /unpacks to more than 8388608 bytes/);
+});
+
+test("a 512 MiB bomb in one entry is refused whatever size its header states, without unpacking it", async () => {
+  // 512 MiB of zeros, deflated in pieces so the test itself never holds them.
+  const deflater = createDeflateRaw(), parts: Buffer[] = [], piece = Buffer.alloc(1 << 20);
+  deflater.on("data", (c: Buffer) => parts.push(c));
+  const done = new Promise((resolve, reject) => deflater.on("end", resolve).on("error", reject));
+  for (let i = 0; i < 512; i++) if (!deflater.write(piece)) await new Promise((resolve) => deflater.once("drain", resolve));
+  deflater.end();
+  await done;
+  const packed = Buffer.concat(parts);
+  assert.ok(packed.length < 1 << 20, `${packed.length} packed bytes`);
+  const before = process.resourceUsage().maxRSS;
+  for (const [size, want] of [[1024, /its size or checksum differs/], [MAX_BUNDLE, /unpacks to more than/], [0xfffffffe, /unpacks to more than/]] as const) {
+    assert.throws(() => unzip(zipRaw([{ name: "bomb", data: Buffer.alloc(0), packed, size, crc: 1 }])), want, `header size ${size}`);
+  }
+  const grown = (process.resourceUsage().maxRSS - before) / 1024;
+  assert.ok(grown < 96, `the reader's memory grew by ${grown.toFixed(0)} MiB: it must stay near the 8 MB a bundle may unpack to`);
 });

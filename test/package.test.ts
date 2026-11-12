@@ -46,16 +46,16 @@ test("one version and one id everywhere", () => {
   }
 });
 
-test("the licences travel with the package", () => {
+test("the licences travel with the package, and the built file holds no library of anyone else", () => {
   assert.match(read("LICENSE"), /^MIT License\n\nCopyright \(c\) 2026 Pavel Buchnev \(harnsy\)\n/);
-  const lock = JSON.parse(read("package-lock.json")).packages["node_modules/fflate"];
-  const third = read("THIRD_PARTY_LICENSES");
-  assert.ok(third.includes(`fflate ${lock.version}`), "THIRD_PARTY_LICENSES names the fflate version that is bundled");
-  assert.ok(third.includes(read("node_modules", "fflate", "LICENSE").trim()), "THIRD_PARTY_LICENSES holds fflate's licence text whole");
-  assert.match(read("NOTICE"), /fflate/);
-  for (const file of ["dist", "openclaw.plugin.json", "LICENSE", "NOTICE", "THIRD_PARTY_LICENSES", "README.md"]) {
+  assert.match(read("NOTICE"), /contains no third-party library/);
+  for (const file of ["dist", "openclaw.plugin.json", "LICENSE", "NOTICE", "README.md"]) {
     assert.ok(pkg.files.includes(file), `package.json files lacks ${file}`);
   }
+  // Everything bundled into dist/index.js comes from src/: esbuild names each file it took in a comment.
+  const taken = [...read("dist", "index.js").matchAll(/^\/\/ ((?:src|node_modules)\/\S+)$/gm)].map((m) => m[1]!);
+  assert.ok(taken.length > 10 && taken.every((file) => file.startsWith("src/")), taken.filter((file) => !file.startsWith("src/")).join(", "));
+  assert.deepEqual(Object.keys(pkg.devDependencies).sort(), ["@types/node", "esbuild", "typescript"], "only the tools that check and build");
 });
 
 test("no source file is longer than 300 lines", () => {

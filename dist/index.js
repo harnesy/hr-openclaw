@@ -105,8 +105,8 @@ function isBundlePath(path) {
   return parts.length === 4 && SKILL_FOLDERS.has(parts[2] ?? "") && isSkillFile(parts[3] ?? "");
 }
 var HIDDEN_CHAR = new RegExp(`[${HIDDEN}]`, "gu");
-function clip(s, max2 = 130) {
-  return JSON.stringify(s.length > max2 ? s.slice(0, max2) : s).replace(HIDDEN_CHAR, (c) => {
+function clip(s, max = 130) {
+  return JSON.stringify(s.length > max ? s.slice(0, max) : s).replace(HIDDEN_CHAR, (c) => {
     const hex = c.codePointAt(0).toString(16);
     return hex.length > 4 ? `\\u{${hex}}` : `\\u${hex.padStart(4, "0")}`;
   });
@@ -246,7 +246,7 @@ function intro(e) {
 }
 function who(e) {
   const p = e.doc.persona;
-  const decide = p.principles.map((x2, i2) => `${i2 + 1}. ${x2.text}
+  const decide = p.principles.map((x, i) => `${i + 1}. ${x.text}
 `).join("");
   const speak = p.voice.rules.map((r) => `- ${r}
 `).join("") + p.voice.samples.map((s) => `- e.g. «${s.text}»
@@ -499,7 +499,7 @@ function list(o, key, where, item) {
   const v = o[key];
   if (v === void 0 || v === null) return [];
   if (!Array.isArray(v)) fail(`${where}.${key}`, "a list");
-  return v.map((x2, i2) => item(x2, `${where}.${key}[${i2}]`));
+  return v.map((x, i) => item(x, `${where}.${key}[${i}]`));
 }
 function strItem(v, where) {
   if (v === null) return "";
@@ -698,407 +698,8 @@ function parseKey(kid, b64) {
   return { kid, pub };
 }
 
-// node_modules/fflate/esm/browser.js
-var u8 = Uint8Array;
-var u16 = Uint16Array;
-var i32 = Int32Array;
-var fleb = new u8([
-  0,
-  0,
-  0,
-  0,
-  0,
-  0,
-  0,
-  0,
-  1,
-  1,
-  1,
-  1,
-  2,
-  2,
-  2,
-  2,
-  3,
-  3,
-  3,
-  3,
-  4,
-  4,
-  4,
-  4,
-  5,
-  5,
-  5,
-  5,
-  0,
-  /* unused */
-  0,
-  0,
-  /* impossible */
-  0
-]);
-var fdeb = new u8([
-  0,
-  0,
-  0,
-  0,
-  1,
-  1,
-  2,
-  2,
-  3,
-  3,
-  4,
-  4,
-  5,
-  5,
-  6,
-  6,
-  7,
-  7,
-  8,
-  8,
-  9,
-  9,
-  10,
-  10,
-  11,
-  11,
-  12,
-  12,
-  13,
-  13,
-  /* unused */
-  0,
-  0
-]);
-var clim = new u8([16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15]);
-var freb = function(eb, start) {
-  var b = new u16(31);
-  for (var i2 = 0; i2 < 31; ++i2) {
-    b[i2] = start += 1 << eb[i2 - 1];
-  }
-  var r = new i32(b[30]);
-  for (var i2 = 1; i2 < 30; ++i2) {
-    for (var j = b[i2]; j < b[i2 + 1]; ++j) {
-      r[j] = j - b[i2] << 5 | i2;
-    }
-  }
-  return { b, r };
-};
-var _a = freb(fleb, 2);
-var fl = _a.b;
-var revfl = _a.r;
-fl[28] = 258, revfl[258] = 28;
-var _b = freb(fdeb, 0);
-var fd = _b.b;
-var revfd = _b.r;
-var rev = new u16(32768);
-for (i = 0; i < 32768; ++i) {
-  x = (i & 43690) >> 1 | (i & 21845) << 1;
-  x = (x & 52428) >> 2 | (x & 13107) << 2;
-  x = (x & 61680) >> 4 | (x & 3855) << 4;
-  rev[i] = ((x & 65280) >> 8 | (x & 255) << 8) >> 1;
-}
-var x;
-var i;
-var hMap = (function(cd, mb, r) {
-  var s = cd.length;
-  var i2 = 0;
-  var l = new u16(mb);
-  for (; i2 < s; ++i2) {
-    if (cd[i2])
-      ++l[cd[i2] - 1];
-  }
-  var le = new u16(mb);
-  for (i2 = 1; i2 < mb; ++i2) {
-    le[i2] = le[i2 - 1] + l[i2 - 1] << 1;
-  }
-  var co;
-  if (r) {
-    co = new u16(1 << mb);
-    var rvb = 15 - mb;
-    for (i2 = 0; i2 < s; ++i2) {
-      if (cd[i2]) {
-        var sv = i2 << 4 | cd[i2];
-        var r_1 = mb - cd[i2];
-        var v = le[cd[i2] - 1]++ << r_1;
-        for (var m = v | (1 << r_1) - 1; v <= m; ++v) {
-          co[rev[v] >> rvb] = sv;
-        }
-      }
-    }
-  } else {
-    co = new u16(s);
-    for (i2 = 0; i2 < s; ++i2) {
-      if (cd[i2]) {
-        co[i2] = rev[le[cd[i2] - 1]++] >> 15 - cd[i2];
-      }
-    }
-  }
-  return co;
-});
-var flt = new u8(288);
-for (i = 0; i < 144; ++i)
-  flt[i] = 8;
-var i;
-for (i = 144; i < 256; ++i)
-  flt[i] = 9;
-var i;
-for (i = 256; i < 280; ++i)
-  flt[i] = 7;
-var i;
-for (i = 280; i < 288; ++i)
-  flt[i] = 8;
-var i;
-var fdt = new u8(32);
-for (i = 0; i < 32; ++i)
-  fdt[i] = 5;
-var i;
-var flrm = /* @__PURE__ */ hMap(flt, 9, 1);
-var fdrm = /* @__PURE__ */ hMap(fdt, 5, 1);
-var max = function(a) {
-  var m = a[0];
-  for (var i2 = 1; i2 < a.length; ++i2) {
-    if (a[i2] > m)
-      m = a[i2];
-  }
-  return m;
-};
-var bits = function(d, p, m) {
-  var o = p / 8 | 0;
-  return (d[o] | d[o + 1] << 8) >> (p & 7) & m;
-};
-var bits16 = function(d, p) {
-  var o = p / 8 | 0;
-  return (d[o] | d[o + 1] << 8 | d[o + 2] << 16) >> (p & 7);
-};
-var shft = function(p) {
-  return (p + 7) / 8 | 0;
-};
-var slc = function(v, s, e) {
-  if (s == null || s < 0)
-    s = 0;
-  if (e == null || e > v.length)
-    e = v.length;
-  return new u8(v.subarray(s, e));
-};
-var ec = [
-  "unexpected EOF",
-  "invalid block type",
-  "invalid length/literal",
-  "invalid distance",
-  "stream finished",
-  "no stream handler",
-  ,
-  // determined by compression function
-  "no callback",
-  "invalid UTF-8 data",
-  "extra field too long",
-  "date not in range 1980-2099",
-  "filename too long",
-  "stream finishing",
-  "invalid zip data"
-  // determined by unknown compression method
-];
-var err = function(ind, msg, nt) {
-  var e = new Error(msg || ec[ind]);
-  e.code = ind;
-  if (Error.captureStackTrace)
-    Error.captureStackTrace(e, err);
-  if (!nt)
-    throw e;
-  return e;
-};
-var inflt = function(dat, st, buf, dict) {
-  var sl = dat.length, dl = dict ? dict.length : 0;
-  if (!sl || st.f && !st.l)
-    return buf || new u8(0);
-  var noBuf = !buf;
-  var resize = noBuf || st.i != 2;
-  var noSt = st.i;
-  if (noBuf)
-    buf = new u8(sl * 3);
-  var cbuf = function(l2) {
-    var bl = buf.length;
-    if (l2 > bl) {
-      var nbuf = new u8(Math.max(bl * 2, l2));
-      nbuf.set(buf);
-      buf = nbuf;
-    }
-  };
-  var final = st.f || 0, pos = st.p || 0, bt = st.b || 0, lm = st.l, dm = st.d, lbt = st.m, dbt = st.n;
-  var tbts = sl * 8;
-  do {
-    if (!lm) {
-      final = bits(dat, pos, 1);
-      var type = bits(dat, pos + 1, 3);
-      pos += 3;
-      if (!type) {
-        var s = shft(pos) + 4, l = dat[s - 4] | dat[s - 3] << 8, t = s + l;
-        if (t > sl) {
-          if (noSt)
-            err(0);
-          break;
-        }
-        if (resize)
-          cbuf(bt + l);
-        buf.set(dat.subarray(s, t), bt);
-        st.b = bt += l, st.p = pos = t * 8, st.f = final;
-        continue;
-      } else if (type == 1)
-        lm = flrm, dm = fdrm, lbt = 9, dbt = 5;
-      else if (type == 2) {
-        var hLit = bits(dat, pos, 31) + 257, hcLen = bits(dat, pos + 10, 15) + 4;
-        var tl = hLit + bits(dat, pos + 5, 31) + 1;
-        pos += 14;
-        var ldt = new u8(tl);
-        var clt = new u8(19);
-        for (var i2 = 0; i2 < hcLen; ++i2) {
-          clt[clim[i2]] = bits(dat, pos + i2 * 3, 7);
-        }
-        pos += hcLen * 3;
-        var clb = max(clt), clbmsk = (1 << clb) - 1;
-        var clm = hMap(clt, clb, 1);
-        for (var i2 = 0; i2 < tl; ) {
-          var r = clm[bits(dat, pos, clbmsk)];
-          pos += r & 15;
-          var s = r >> 4;
-          if (s < 16) {
-            ldt[i2++] = s;
-          } else {
-            var c = 0, n = 0;
-            if (s == 16)
-              n = 3 + bits(dat, pos, 3), pos += 2, c = ldt[i2 - 1];
-            else if (s == 17)
-              n = 3 + bits(dat, pos, 7), pos += 3;
-            else if (s == 18)
-              n = 11 + bits(dat, pos, 127), pos += 7;
-            while (n--)
-              ldt[i2++] = c;
-          }
-        }
-        var lt = ldt.subarray(0, hLit), dt = ldt.subarray(hLit);
-        lbt = max(lt);
-        dbt = max(dt);
-        lm = hMap(lt, lbt, 1);
-        dm = hMap(dt, dbt, 1);
-      } else
-        err(1);
-      if (pos > tbts) {
-        if (noSt)
-          err(0);
-        break;
-      }
-    }
-    if (resize)
-      cbuf(bt + 131072);
-    var lms = (1 << lbt) - 1, dms = (1 << dbt) - 1;
-    var lpos = pos;
-    for (; ; lpos = pos) {
-      var c = lm[bits16(dat, pos) & lms], sym = c >> 4;
-      pos += c & 15;
-      if (pos > tbts) {
-        if (noSt)
-          err(0);
-        break;
-      }
-      if (!c)
-        err(2);
-      if (sym < 256)
-        buf[bt++] = sym;
-      else if (sym == 256) {
-        lpos = pos, lm = null;
-        break;
-      } else {
-        var add = sym - 254;
-        if (sym > 264) {
-          var i2 = sym - 257, b = fleb[i2];
-          add = bits(dat, pos, (1 << b) - 1) + fl[i2];
-          pos += b;
-        }
-        var d = dm[bits16(dat, pos) & dms], dsym = d >> 4;
-        if (!d)
-          err(3);
-        pos += d & 15;
-        var dt = fd[dsym];
-        if (dsym > 3) {
-          var b = fdeb[dsym];
-          dt += bits16(dat, pos) & (1 << b) - 1, pos += b;
-        }
-        if (pos > tbts) {
-          if (noSt)
-            err(0);
-          break;
-        }
-        if (resize)
-          cbuf(bt + 131072);
-        var end = bt + add;
-        if (bt < dt) {
-          var shift = dl - dt, dend = Math.min(dt, end);
-          if (shift + bt < 0)
-            err(3);
-          for (; bt < dend; ++bt)
-            buf[bt] = dict[shift + bt];
-        }
-        for (; bt < end; ++bt)
-          buf[bt] = buf[bt - dt];
-      }
-    }
-    st.l = lm, st.p = lpos, st.b = bt, st.f = final;
-    if (lm)
-      final = 1, st.m = lbt, st.d = dm, st.n = dbt;
-  } while (!final);
-  return bt != buf.length && noBuf ? slc(buf, 0, bt) : buf.subarray(0, bt);
-};
-var et = /* @__PURE__ */ new u8(0);
-var Inflate = /* @__PURE__ */ (function() {
-  function Inflate2(opts, cb) {
-    if (typeof opts == "function")
-      cb = opts, opts = {};
-    this.ondata = cb;
-    var dict = opts && opts.dictionary && opts.dictionary.subarray(-32768);
-    this.s = { i: 0, b: dict ? dict.length : 0 };
-    this.o = new u8(32768);
-    this.p = new u8(0);
-    if (dict)
-      this.o.set(dict);
-  }
-  Inflate2.prototype.e = function(c) {
-    if (!this.ondata)
-      err(5);
-    if (this.d)
-      err(4);
-    if (!this.p.length)
-      this.p = c;
-    else if (c.length) {
-      var n = new u8(this.p.length + c.length);
-      n.set(this.p), n.set(c, this.p.length), this.p = n;
-    }
-  };
-  Inflate2.prototype.c = function(final) {
-    this.s.i = +(this.d = final || false);
-    var bts = this.s.b;
-    var dt = inflt(this.p, this.s, this.o);
-    this.ondata(slc(dt, bts, this.s.b), this.d);
-    this.o = slc(dt, this.s.b - 32768), this.s.b = this.o.length;
-    this.p = slc(this.p, this.s.p / 8 | 0), this.s.p &= 7;
-  };
-  Inflate2.prototype.push = function(chunk, final) {
-    this.e(chunk), this.c(final);
-  };
-  return Inflate2;
-})();
-var td = typeof TextDecoder != "undefined" && /* @__PURE__ */ new TextDecoder();
-var tds = 0;
-try {
-  td.decode(et, { stream: true });
-  tds = 1;
-} catch (e) {
-}
-
 // src/catalog/zip.ts
+import { inflateRawSync } from "node:zlib";
 var END_SIG = 101010256;
 var DIR_SIG = 33639248;
 var LOCAL_SIG = 67324752;
@@ -1107,11 +708,11 @@ var DIR_LEN = 46;
 var LOCAL_LEN = 30;
 var STORE = 0;
 var DEFLATE = 8;
-var SLICE = 4096;
 var notZip = (why) => new Refusal(`not a zip file: ${why}`);
+var tooBig = () => new Refusal(`unpacks to more than ${MAX_BUNDLE} bytes`);
 function findEnd(v) {
-  for (let i2 = v.byteLength - END_LEN; i2 >= 0 && i2 >= v.byteLength - END_LEN - 65535; i2--) {
-    if (v.getUint32(i2, true) === END_SIG && i2 + END_LEN + v.getUint16(i2 + 20, true) <= v.byteLength) return i2;
+  for (let i = v.byteLength - END_LEN; i >= 0 && i >= v.byteLength - END_LEN - 65535; i--) {
+    if (v.getUint32(i, true) === END_SIG && i + END_LEN + v.getUint16(i + 20, true) <= v.byteLength) return i;
   }
   throw notZip("no directory");
 }
@@ -1167,39 +768,32 @@ var CRC_TABLE = Uint32Array.from({ length: 256 }, (_, n) => {
 });
 function crc32(b) {
   let c = 4294967295;
-  for (let i2 = 0; i2 < b.length; i2++) c = (CRC_TABLE[(c ^ b[i2]) & 255] ^ c >>> 8) >>> 0;
+  for (let i = 0; i < b.length; i++) c = (CRC_TABLE[(c ^ b[i]) & 255] ^ c >>> 8) >>> 0;
   return (c ^ 4294967295) >>> 0;
 }
-function inflate(packed, max2) {
-  const chunks = [];
-  let total = 0;
-  const stream = new Inflate((chunk) => {
-    total += chunk.length;
-    chunks.push(chunk);
-  });
-  for (let at = 0; total <= max2; at += SLICE) {
-    const last = at + SLICE >= packed.length;
-    stream.push(packed.subarray(at, at + SLICE), last);
-    if (last) break;
+function inflate(packed, max) {
+  try {
+    const out = inflateRawSync(packed, { maxOutputLength: max + 1 });
+    return out.length > max ? null : out;
+  } catch (err) {
+    if (err.code === "ERR_BUFFER_TOO_LARGE") return null;
+    throw err;
   }
-  return Buffer.concat(chunks);
 }
 function readEntry(file, v, e, left) {
   if (e.offset + LOCAL_LEN > file.length || v.getUint32(e.offset, true) !== LOCAL_SIG) throw notZip(`${clip(e.name)} has no header`);
   const start = e.offset + LOCAL_LEN + v.getUint16(e.offset + 26, true) + v.getUint16(e.offset + 28, true);
   if (start + e.packed > file.length) throw notZip(`${clip(e.name)} is cut short`);
   if ((e.flags & 1) !== 0 || e.method !== STORE && e.method !== DEFLATE) throw new Refusal(`zip entry ${clip(e.name)}: not stored or deflated`);
-  const packed = file.subarray(start, start + e.packed);
+  const packed = file.subarray(start, start + e.packed), differs = new Refusal(`zip entry ${clip(e.name)}: its size or checksum differs from its header`);
   let out;
   try {
-    out = e.method === STORE ? packed.subarray(0, left + 1) : inflate(packed, Math.min(left, e.size));
+    out = e.method === STORE ? packed.length > left ? null : packed : inflate(packed, Math.min(left, e.size));
   } catch {
     throw new Refusal(`zip entry ${clip(e.name)} does not unpack`);
   }
-  if (out.length > left) return out;
-  if (out.length !== e.size || e.crc32 !== 0 && crc32(out) !== e.crc32) {
-    throw new Refusal(`zip entry ${clip(e.name)}: its size or checksum differs from its header`);
-  }
+  if (out === null) throw e.method === STORE || e.size >= left ? tooBig() : differs;
+  if (out.length !== e.size || e.crc32 !== 0 && crc32(out) !== e.crc32) throw differs;
   return out;
 }
 function unzip(file) {
@@ -1213,7 +807,7 @@ function unzip(file) {
     if (!safeName(e.name) || !e.regular) throw new Refusal(`zip entry ${clip(e.name)}: not a plain file inside the bundle`);
     const b = readEntry(file, v, e, left);
     left -= b.length;
-    if (left < 0) throw new Refusal(`unpacks to more than ${MAX_BUNDLE} bytes`);
+    if (left < 0) throw tooBig();
     files.set(e.name, b);
   }
   return files;
@@ -1309,9 +903,9 @@ async function fetchEmployee(src, vf, host, e) {
   if (rel === null) throw new Refusal(`${e.id}@${e.version}: url not on ${host}`);
   try {
     return openBundle(vf.key, host, e, await src.get(rel, MAX_BUNDLE));
-  } catch (err2) {
-    if (err2 instanceof Refusal) throw new Refusal(`${e.id}@${e.version}: ${err2.message}`);
-    throw err2;
+  } catch (err) {
+    if (err instanceof Refusal) throw new Refusal(`${e.id}@${e.version}: ${err.message}`);
+    throw err;
   }
 }
 
@@ -1325,7 +919,7 @@ function httpSource(base, userAgent, deadlineMs = DEADLINE_MS) {
   if (root.protocol !== "https:" && root.protocol !== "http:") throw new Refusal("the catalog address is not http(s)");
   const request = root.protocol === "https:" ? httpsRequest : httpRequest;
   return {
-    get(path, max2) {
+    get(path, max) {
       const url = new URL(path.split("/").map(encodeURIComponent).join("/"), root);
       return new Promise((resolve3, reject) => {
         const refuse = (why) => reject(new Refusal(`${url.host}/${path}: ${why}`));
@@ -1338,9 +932,9 @@ function httpSource(base, userAgent, deadlineMs = DEADLINE_MS) {
           let n = 0;
           res.on("data", (c) => {
             chunks.push(c);
-            if ((n += c.length) > max2) {
+            if ((n += c.length) > max) {
               res.destroy();
-              refuse(`more than ${max2} bytes`);
+              refuse(`more than ${max} bytes`);
             }
           });
           res.on("end", () => resolve3(Buffer.concat(chunks)));
@@ -1351,7 +945,7 @@ function httpSource(base, userAgent, deadlineMs = DEADLINE_MS) {
           req.destroy();
         }, { once: true });
         req.on("timeout", () => req.destroy(new Error("timeout")));
-        req.on("error", (err2) => refuse(`cannot be fetched (${err2.message})`));
+        req.on("error", (err) => refuse(`cannot be fetched (${err.message})`));
         req.end();
       });
     }
@@ -1423,8 +1017,8 @@ function read(file) {
   let text3;
   try {
     text3 = readFileSync(file, "utf8");
-  } catch (err2) {
-    if (err2.code === "ENOENT") return {};
+  } catch (err) {
+    if (err.code === "ENOENT") return {};
     throw new Refusal(`the plugin's state file cannot be read (${file}); nothing is fetched until it can`);
   }
   try {
@@ -1505,7 +1099,7 @@ function spawnRunner(argv = process.argv, execPath = process.execPath) {
     child.stderr.on("data", (d) => {
       stderr += d.toString("utf8");
     });
-    child.on("error", (err2) => resolve3({ code: 1, stdout, stderr: stderr + err2.message }));
+    child.on("error", (err) => resolve3({ code: 1, stdout, stderr: stderr + err.message }));
     child.on("close", (code) => resolve3({ code: code ?? 1, stdout, stderr }));
   });
 }
@@ -1733,9 +1327,9 @@ function writeAll(h, root, agent) {
     }
     written.push(RECORD_FILE);
     writeRecord(root, recordFor(h, agent));
-  } catch (err2) {
+  } catch (err) {
     rollback(root, written);
-    throw err2 instanceof Refusal ? err2 : new Refusal(`a file could not be written (${err2.message}); what was written was removed`);
+    throw err instanceof Refusal ? err : new Refusal(`a file could not be written (${err.message}); what was written was removed`);
   }
   return written;
 }
@@ -1752,9 +1346,9 @@ async function hireCommand(cx, id, opts = {}) {
   let agent;
   try {
     agent = await addAgent(cx.openclaw, name, root);
-  } catch (err2) {
+  } catch (err) {
     rollback(root, written);
-    throw new Refusal(`${err2.message}; the files written for it were removed`);
+    throw new Refusal(`${err.message}; the files written for it were removed`);
   }
   replace(root, "IDENTITY.md", workspaceFiles(h.tree).get("IDENTITY.md"));
   const named = await setIdentity(cx.openclaw, agent);
@@ -1881,16 +1475,16 @@ function keepSums(rec, files, kept) {
 // src/cli.ts
 var TEST_CATALOG = ["--test-catalog", "read the test catalog that HARNSY_HR_FEED / HARNSY_HR_PUB name instead of hr.harnsy.dev (for stands)"];
 var CLI_DESCRIPTION = "Hire AI employees from the signed catalog hr.harnsy.dev as OpenClaw agents";
-function failureText(err2) {
-  if (err2 instanceof Refusal) return `${PLUGIN_ID}: ${err2.message}`;
-  return `${PLUGIN_ID}: stopped by an unexpected fault (${err2 instanceof Error ? err2.message : "unknown"}); nothing more was done`;
+function failureText(err) {
+  if (err instanceof Refusal) return `${PLUGIN_ID}: ${err.message}`;
+  return `${PLUGIN_ID}: stopped by an unexpected fault (${err instanceof Error ? err.message : "unknown"}); nothing more was done`;
 }
 function registerCli(program, context, fail2) {
   const run = (fn) => async (...args) => {
     try {
       await fn(context(), ...args);
-    } catch (err2) {
-      fail2(failureText(err2));
+    } catch (err) {
+      fail2(failureText(err));
     }
   };
   const stand = (cx, o) => ({ ...cx, testCatalog: o.testCatalog === true });
@@ -1926,8 +1520,8 @@ async function chatCommand(base, args) {
       lines.push(`This step writes files and waits for your yes, so it is not done from a chat. In a terminal:
   ${cli(`${verb} ${id}`)}`);
     } else lines.push(HELP);
-  } catch (err2) {
-    lines.push(failureText(err2));
+  } catch (err) {
+    lines.push(failureText(err));
   }
   return fenced(withoutStatePath(lines.join("\n\n"), cx.stateDir));
 }

@@ -1,4 +1,4 @@
-// Builds dist/index.js: the plugin and its one library (fflate) in a single readable file. OpenClaw installs a plugin
+// Builds dist/index.js: the plugin in a single readable file, with no library inside. OpenClaw installs a plugin
 // from git without running a build, so dist/ is committed; `npm test` fails when it is not in step with src/.
 import { build, type BuildOptions } from "esbuild";
 import { join } from "node:path";

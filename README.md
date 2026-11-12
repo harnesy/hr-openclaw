@@ -169,8 +169,8 @@ from a file.
 
 ## Licences
 
-The code in this repository is under the MIT licence (`LICENSE`); the library the built plugin contains is listed in
-`NOTICE`, with its licence text in `THIRD_PARTY_LICENSES`. The employees are not part of this repository. Each has its
+The code in this repository is under the MIT licence (`LICENSE`). The built plugin contains no third-party library:
+it uses Node's own modules only (`NOTICE`). The employees are not part of this repository. Each has its
 own licence, most often CC BY 4.0, and arrives with a `NOTICE.md` that names its author, licence, source and the works
 it is built on: keep that file with the employee. An employee's text is under the licence its `NOTICE.md` names, not
 under this repository's MIT licence. Each skill keeps its own `LICENSE` file where it has one. Employee pictures are
