@@ -1,6 +1,9 @@
 // src/index.ts
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 
+// src/chat.ts
+import { normalize } from "node:path";
+
 // src/gotext.ts
 var SPACE = "\\t\\n\\v\\f\\r \\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000";
 var SPACES = new RegExp(`[${SPACE}]+`, "u");
@@ -1926,7 +1929,11 @@ async function chatCommand(base, args) {
   } catch (err2) {
     lines.push(failureText(err2));
   }
-  return fenced(lines.join("\n\n"));
+  return fenced(withoutStatePath(lines.join("\n\n"), cx.stateDir));
+}
+function withoutStatePath(text3, stateDir) {
+  const dir = normalize(stateDir).replace(/[\\/]+$/, "");
+  return dir.length > 1 ? text3.replaceAll(dir, "<OpenClaw's state folder>") : text3;
 }
 function fenced(text3) {
   return "```\n" + text3.replace(/`/g, "'") + "\n```";

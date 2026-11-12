@@ -1,6 +1,7 @@
 // The chat command `/harnsy-hr`: it only looks (search, show, list). Hiring, updating and firing write files and wait
 // for a person's yes, and nothing that waits for a person may run in a chat: for those it answers with the command to
 // type in a terminal.
+import { normalize } from "node:path";
 import { isID } from "./catalog/grammar.ts";
 import { failureText } from "./cli.ts";
 import { searchCommand, showCommand } from "./commands/browse.ts";
@@ -36,7 +37,16 @@ export async function chatCommand(base: Omit<Context, "out" | "ask">, args: stri
   } catch (err) {
     lines.push(failureText(err));
   }
-  return fenced(lines.join("\n\n"));
+  return fenced(withoutStatePath(lines.join("\n\n"), cx.stateDir));
+}
+
+/**
+ * A chat answer names a folder by its place in OpenClaw's state folder: where that folder is on this machine is
+ * nothing every sender of a chat needs to read. A terminal prints the whole path.
+ */
+function withoutStatePath(text: string, stateDir: string): string {
+  const dir = normalize(stateDir).replace(/[\\/]+$/, "");
+  return dir.length > 1 ? text.replaceAll(dir, "<OpenClaw's state folder>") : text;
 }
 
 /**

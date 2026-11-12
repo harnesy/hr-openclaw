@@ -57,7 +57,9 @@ What the commands print of the catalog's text (a card, what an employee needs, a
 characters and without the characters that hide or reorder text (zero-width characters, direction overrides and the
 rest of Unicode's format characters); in an error message such a character is shown as an escape (`\u202e`). The files
 a hire writes keep every byte the catalog signed. A chat answer is sent as one code block, so nothing in a publisher's
-text is posted as a link, a mention or markup; a backtick in it is shown as an apostrophe.
+text is posted as a link, a mention or markup; a backtick in it is shown as an apostrophe. A chat answer names a
+folder by its place in OpenClaw's state folder (`<OpenClaw's state folder>/workspace-<name>`), not by its path on
+your machine; a terminal prints the path.
 
 The plugin adds nothing else: no tools for the model, no hooks, no background service. It runs only when you call it.
 

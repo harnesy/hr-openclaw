@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
-import { join } from "node:path";
+import { writeFileSync } from "node:fs";
+import { join, sep } from "node:path";
 import { test } from "node:test";
 import { Refusal } from "../src/catalog/types.ts";
 import { failureText, registerCli } from "../src/cli.ts";
 import { hireCommand } from "../src/commands/hire.ts";
+import { listCommand } from "../src/commands/staff.ts";
 import { stateDirOf } from "../src/host.ts";
+import { stateFile } from "../src/state.ts";
 import { recorder } from "./kit/program.ts";
 import { staff } from "./kit/staff.ts";
 import { chat, world } from "./kit/world.ts";
@@ -49,6 +52,22 @@ test("chat: anything else gets the short help; a refusal is one plain line", asy
   assert.equal(await chat(w.cx(), "show ../../etc/passwd"), "harnsy-hr: that is not an employee id: want <publisher>/<name>, for example harnsy/accountant");
   assert.equal(await chat(w.cx(), "show harnsy/nobody"), "harnsy-hr: harnsy/nobody is not in the catalog");
   assert.match(await chat(w.cx({ keys: [] }), "search x"), /^harnsy-hr: This build of the plugin has no catalog key built in, /);
+});
+
+test("chat: an answer names a folder by its place in OpenClaw's state folder, never by its path on this machine", async () => {
+  const w = await fresh(), there = "<OpenClaw's state folder>" + sep;
+  await hireCommand(w.cx(), "harnsy/sample-plain", { yes: true });
+  const answers = new Map<string, string>();
+  for (const args of ["list", "show harnsy/sample-skills", "search", "hire harnsy/sample-skills"]) answers.set(args, await chat(w.cx(), args));
+  writeFileSync(stateFile(w.stateDir), "{");
+  answers.set("damaged", await chat(w.cx(), "search"));
+  for (const [args, said] of answers) assert.ok(!said.includes(w.stateDir), `${args}: ${said}`);
+  assert.equal(answers.get("list"), `harnsy/sample-plain  1.0.0  agent «sample-plain»  ${there}workspace-sample-plain`);
+  assert.ok(answers.get("show harnsy/sample-skills")!.includes(`Files (8), written to ${there}workspace-sample-skills:`));
+  assert.ok(answers.get("damaged")!.includes(`the plugin's state file is damaged (${there}harnsy-hr${sep}state.json)`), answers.get("damaged"));
+
+  listCommand(w.cx());
+  assert.ok(w.printed.at(-1)!.endsWith(join(w.stateDir, "workspace-sample-plain")), "a terminal still prints the whole path");
 });
 
 test("the terminal command is harnsy-hr with search, show, hire, update, list, fire", async () => {
