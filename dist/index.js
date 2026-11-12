@@ -1618,7 +1618,7 @@ function describe(h, root) {
   const lines = [
     card(e),
     `  Licence: ${one(h.employee.doc.license) || "none stated"}`,
-    `  Page: ${one(e.cvUrl)}`,
+    `  Page: ${one(sourceURL(h.employee))}`,
     "",
     "What it needs:",
     need === "" ? "- Nothing beyond the model your OpenClaw already uses." : need,

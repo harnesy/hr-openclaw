@@ -4,8 +4,8 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { hireCommand } from "../src/commands/hire.ts";
 import { hexSum } from "../src/catalog/verify.ts";
-import { bytes, source, write } from "./kit/kit.ts";
-import { refusal } from "./kit/sample.ts";
+import { bytes, Kit, source, write } from "./kit/kit.ts";
+import { refusal, tempDir } from "./kit/sample.ts";
 import { staff, TESTDATA } from "./kit/staff.ts";
 import { answer, world, type World } from "./kit/world.ts";
 
@@ -58,6 +58,14 @@ test("hire shows the card, what the employee needs, every file and the whole not
   assert.equal(w.printed.at(-1), "Nothing was written.");
   assert.deepEqual(w.snapshot(), before);
   assert.deepEqual(w.calls.filter((c) => c[1] !== "list"), []);
+});
+
+test("a feed that names no page for its employees, as the live catalog's: the page shown is the employee's address on the catalog", async () => {
+  const kit = new Kit(), dir = tempDir();
+  kit.release(dir, kit.catalog(join(TESTDATA, "employees")), (feed) => { for (const b of feed.bundles) delete b.cv_url; });
+  const w = world(kit, dir);
+  await hireCommand(w.cx({ ask: answer(w, false) }), "harnsy/sample-plain");
+  assert.match(w.printed[0]!, /^  Page: https:\/\/hr\.harnsy\.dev\/e\/harnsy\/sample-plain$/m);
 });
 
 test("hire without a person and without --yes is refused; nothing is written", async () => {

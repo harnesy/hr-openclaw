@@ -2,6 +2,7 @@
 // first, so a bundle cannot move the cursor or recolour the terminal.
 import type { Entry } from "../catalog/types.ts";
 import { printable } from "../gotext.ts";
+import { sourceURL } from "../render/notice.ts";
 import { needs } from "../render/persona.ts";
 import { PLUGIN_ID } from "../version.ts";
 import { workspaceFiles } from "../workspace.ts";
@@ -27,7 +28,7 @@ function size(n: number): string {
 export function describe(h: Hired, root: string): string {
   const e = h.employee.entry, files = workspaceFiles(h.tree), need = printable(needs(h.employee)).trimEnd();
   const scripts = [...files.keys()].filter((p) => /^skills\/[^/]+\/scripts\//.test(p)).length;
-  const lines = [card(e), `  Licence: ${one(h.employee.doc.license) || "none stated"}`, `  Page: ${one(e.cvUrl)}`, "",
+  const lines = [card(e), `  Licence: ${one(h.employee.doc.license) || "none stated"}`, `  Page: ${one(sourceURL(h.employee))}`, "",
     "What it needs:", need === "" ? "- Nothing beyond the model your OpenClaw already uses." : need, "",
     `Files (${files.size}), written to ${root}:`];
   for (const [rel, b] of files) lines.push(`  ${rel}  ${size(b.length)}`);
