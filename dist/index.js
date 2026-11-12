@@ -1348,17 +1348,49 @@ function httpSource(base, userAgent) {
 var CATALOG_KEYS = [
   { kid: "c1", pub: "WMZK4GiSTfBo5ZeMNZjDRextsTDGfoCU1KF6jlrqVjM=" }
 ];
-function catalogConfig(env, builtIn = CATALOG_KEYS) {
-  const feed = env["HARNSY_HR_FEED"] ?? "", pub = env["HARNSY_HR_PUB"] ?? "";
-  let keys = builtIn.map((k) => parseKey(k.kid, k.pub));
-  if (pub !== "") {
-    const cut = pub.indexOf(":");
-    if (cut < 1) throw new Refusal("HARNSY_HR_PUB: want <kid>:<base64 of the raw 32-byte Ed25519 public key>");
-    keys = [parseKey(pub.slice(0, cut), pub.slice(cut + 1))];
+var FEED = "HARNSY_HR_FEED";
+var PUB = "HARNSY_HR_PUB";
+var FLAG = "--test-catalog";
+var LOOPBACK = /* @__PURE__ */ new Set(["127.0.0.1", "[::1]", "localhost"]);
+function gate(set, call) {
+  if (call.chat && set.length > 0) {
+    throw new Refusal(`A test catalog is set in this machine's environment (${set.join(", ")}). It is never read from a chat; nothing was fetched.`);
   }
-  const base = feed !== "" ? feed : `https://${CATALOG_HOST}`;
-  const testNote = feed === "" && pub === "" ? "" : `A test catalog is in use (HARNSY_HR_FEED or HARNSY_HR_PUB is set): reading ${base}, trusting ${keys.map((k) => k.kid).join(", ") || "no key"}.`;
-  return { base, keys, testNote };
+  if (set.length > 0 && !call.testCatalog) {
+    const many = set.length > 1;
+    throw new Refusal(`${set.join(" and ")} ${many ? "are" : "is"} set, but ${FLAG} was not given: a test catalog is read only when the command line says so. Nothing was fetched or written. Unset the variable${many ? "s" : ""} to read ${CATALOG_HOST}.`);
+  }
+  if (set.length === 0 && call.testCatalog) {
+    throw new Refusal(`${FLAG} was given, but neither ${FEED} nor ${PUB} is set: there is no test catalog to read.`);
+  }
+}
+function testAddress(feed) {
+  let url;
+  try {
+    url = new URL(feed);
+  } catch {
+  }
+  if (!url || url.protocol !== "https:" && url.protocol !== "http:" || url.username !== "" || url.password !== "" || url.search !== "" || url.hash !== "") {
+    throw new Refusal(`${FEED}: want an http(s) address without a query, for example http://127.0.0.1:8850`);
+  }
+  if (url.protocol === "http:" && !LOOPBACK.has(url.hostname)) {
+    throw new Refusal(`${FEED}: plain http is taken only for this machine itself (127.0.0.1, [::1], localhost); use https for any other address.`);
+  }
+  return (url.origin + url.pathname).replace(/\/+$/, "");
+}
+function testKey(pub) {
+  const cut = pub.indexOf(":");
+  if (cut < 1) throw new Refusal(`${PUB}: want <kid>:<base64 of the raw 32-byte Ed25519 public key>`);
+  return parseKey(pub.slice(0, cut), pub.slice(cut + 1));
+}
+function catalogConfig(env, builtIn = CATALOG_KEYS, call = {}) {
+  const feed = env[FEED] ?? "", pub = env[PUB] ?? "";
+  gate([[FEED, feed], [PUB, pub]].filter(([, value]) => value !== "").map(([name]) => name), call);
+  const test = feed !== "" || pub !== "";
+  const keys = pub !== "" ? [testKey(pub)] : builtIn.map((k) => parseKey(k.kid, k.pub));
+  const base = feed !== "" ? testAddress(feed) : `https://${CATALOG_HOST}`;
+  const testNote = !test ? "" : `A test catalog is in use (${FEED} or ${PUB} is set): reading ${base}, trusting ${keys.map((k) => printable(k.kid)).join(", ") || "no key"}.`;
+  return { base, keys, test, testNote };
 }
 var NO_KEY = "This build of the plugin has no catalog key built in, so it cannot check the catalog's signature and reads nothing from it.";
 
@@ -1408,31 +1440,30 @@ function rememberSeq(stateDir, kid, seq) {
 }
 
 // src/commands/context.ts
-function announce(cx) {
-  const note = catalogConfig(cx.env, cx.keys ?? CATALOG_KEYS).testNote;
-  if (note !== "") cx.out(note);
-}
 async function openCatalog(cx) {
-  const cfg = catalogConfig(cx.env, cx.keys ?? CATALOG_KEYS);
+  const cfg = catalogConfig(cx.env, cx.keys ?? CATALOG_KEYS, { testCatalog: cx.testCatalog, chat: cx.chat });
   if (cfg.keys.length === 0) throw new Refusal(NO_KEY);
+  if (cfg.testNote !== "") cx.out(cfg.testNote);
+  const slot = (kid) => cfg.test ? `test:${kid}` : kid;
   const src = (cx.source ?? ((base) => httpSource(base, USER_AGENT)))(cfg.base);
-  const feed = await fetchFeed(src, cfg.keys, CATALOG_HOST, cx.now(), (kid) => seenSeq(cx.stateDir, kid));
-  rememberSeq(cx.stateDir, feed.key.kid, feed.feed.seq);
-  return { feed, src };
+  const feed = await fetchFeed(src, cfg.keys, CATALOG_HOST, cx.now(), (kid) => seenSeq(cx.stateDir, slot(kid)));
+  rememberSeq(cx.stateDir, slot(feed.key.kid), feed.feed.seq);
+  const warning = !cfg.test ? "" : `This is a test catalog, not ${CATALOG_HOST}: it is read from ${cfg.base} and signed by the key ${clip(feed.key.kid)}. `;
+  return { feed, src, warning };
 }
 function checkID(id) {
   if (!isID(id)) throw new Refusal("that is not an employee id: want <publisher>/<name>, for example harnsy/accountant");
 }
 async function employeeFor(cx, id) {
   checkID(id);
-  const { feed, src } = await openCatalog(cx);
+  const { feed, src, warning } = await openCatalog(cx);
   const entry2 = findEntry(feed, id);
   if (!entry2) {
     const revoked = feed.feed.revoked.some((r) => r.startsWith(id + "@"));
     throw new Refusal(revoked ? `${id}: its current version was withdrawn from the catalog and is not served` : `${id} is not in the catalog`);
   }
   const employee = await fetchEmployee(src, feed, CATALOG_HOST, entry2);
-  return { feed, employee, tree: renderOpenClaw(employee) };
+  return { feed, warning, employee, tree: renderOpenClaw(employee) };
 }
 function needPerson(cx, yes) {
   if (!yes && !cx.ask) throw new Refusal("this step waits for a person's yes: run it in a terminal, or pass --yes");
@@ -1701,7 +1732,7 @@ async function hireCommand(cx, id, opts = {}) {
   const name = h.tree.name, root = join4(cx.stateDir, workspaceFolder(name));
   await preflight(cx, name, root);
   cx.out(describe(h, root));
-  if (!await confirm(cx, opts.yes, `Hire ${id} as the OpenClaw agent «${name}»?`)) return cx.out("Nothing was written.");
+  if (!await confirm(cx, opts.yes, `${h.warning}Hire ${id} as the OpenClaw agent «${name}»?`)) return cx.out("Nothing was written.");
   await preflight(cx, name, root);
   const written = writeAll(h, root, name);
   let agent;
@@ -1795,11 +1826,11 @@ function summary(id, from, to, p, replaceEdited) {
   list2("No longer part of the employee, but changed by you: kept as your own files:", p.left);
   return lines.join("\n");
 }
-async function chooseEdited(cx, opts, edited) {
+async function chooseEdited(cx, opts, edited, warning) {
   if (opts.replaceEdited) return edited;
   const take = [];
   for (const rel of edited) {
-    if (!opts.yes && cx.ask && await cx.ask(`${rel} was changed since the hire. Replace it with the new version?`)) take.push(rel);
+    if (!opts.yes && cx.ask && await cx.ask(`${warning}${rel} was changed since the hire. Replace it with the new version?`)) take.push(rel);
   }
   return take;
 }
@@ -1815,8 +1846,8 @@ async function updateCommand(cx, id, opts = {}) {
     return cx.out(`${id} ${to}: every file is current.`);
   }
   cx.out(summary(id, rec.version, to, p, opts.replaceEdited));
-  if (!await confirm(cx, opts.yes, `Update ${id} in ${root}?`)) return cx.out("Nothing was changed.");
-  const take = await chooseEdited(cx, opts, p.edited);
+  if (!await confirm(cx, opts.yes, `${h.warning}Update ${id} in ${root}?`)) return cx.out("Nothing was changed.");
+  const take = await chooseEdited(cx, opts, p.edited, h.warning);
   for (const rel of [...p.write, ...take]) replace(root, rel, files.get(rel));
   for (const rel of p.drop) remove(root, rel);
   writeRecord(root, { ...recordFor(h, rec.agent), files: keepSums(rec, files, p.edited.filter((r) => !take.includes(r))) });
@@ -1834,6 +1865,7 @@ function keepSums(rec, files, kept) {
 }
 
 // src/cli.ts
+var TEST_CATALOG = ["--test-catalog", "read the test catalog that HARNSY_HR_FEED / HARNSY_HR_PUB name instead of hr.harnsy.dev (for stands)"];
 var CLI_DESCRIPTION = "Hire AI employees from the signed catalog hr.harnsy.dev as OpenClaw agents";
 function failureText(err2) {
   if (err2 instanceof Refusal) return `${PLUGIN_ID}: ${err2.message}`;
@@ -1842,18 +1874,17 @@ function failureText(err2) {
 function registerCli(program, context, fail2) {
   const run = (fn) => async (...args) => {
     try {
-      const cx = context();
-      announce(cx);
-      await fn(cx, ...args);
+      await fn(context(), ...args);
     } catch (err2) {
       fail2(failureText(err2));
     }
   };
+  const stand = (cx, o) => ({ ...cx, testCatalog: o.testCatalog === true });
   const root = program.command(PLUGIN_ID).description(CLI_DESCRIPTION);
-  root.command("search [words...]").description("Search the catalog by words (a role, a skill, a need); no words lists everyone").option("--department <name>", "only this department, for example finance").option("--limit <n>", "how many to show, at most 20 (10 when left out)").action(run((cx, words, o) => searchCommand(cx, (words ?? []).join(" "), { department: o.department, limit: o.limit === void 0 ? void 0 : Number(o.limit) })));
-  root.command("show <id>").description("Show one employee: what it needs, the files a hire writes, its notice").action(run((cx, id) => showCommand(cx, id)));
-  root.command("hire <id>").description("Hire an employee as an OpenClaw agent with a workspace of its own; shows everything first and asks").option("--yes", "do not ask (for scripts)").action(run((cx, id, o) => hireCommand(cx, id, { yes: o.yes })));
-  root.command("update <id>").description("Bring a hired employee to the catalog's current version; files you changed are asked about").option("--yes", "do not ask; files you changed are kept").option("--replace-edited", "also replace the files you changed").action(run((cx, id, o) => updateCommand(cx, id, { yes: o.yes, replaceEdited: o.replaceEdited })));
+  root.command("search [words...]").description("Search the catalog by words (a role, a skill, a need); no words lists everyone").option("--department <name>", "only this department, for example finance").option("--limit <n>", "how many to show, at most 20 (10 when left out)").option(...TEST_CATALOG).action(run((cx, words, o) => searchCommand(stand(cx, o), (words ?? []).join(" "), { department: o.department, limit: o.limit === void 0 ? void 0 : Number(o.limit) })));
+  root.command("show <id>").description("Show one employee: what it needs, the files a hire writes, its notice").option(...TEST_CATALOG).action(run((cx, id, o) => showCommand(stand(cx, o), id)));
+  root.command("hire <id>").description("Hire an employee as an OpenClaw agent with a workspace of its own; shows everything first and asks").option("--yes", "do not ask (for scripts)").option(...TEST_CATALOG).action(run((cx, id, o) => hireCommand(stand(cx, o), id, { yes: o.yes })));
+  root.command("update <id>").description("Bring a hired employee to the catalog's current version; files you changed are asked about").option("--yes", "do not ask; files you changed are kept").option("--replace-edited", "also replace the files you changed").option(...TEST_CATALOG).action(run((cx, id, o) => updateCommand(stand(cx, o), id, { yes: o.yes, replaceEdited: o.replaceEdited })));
   root.command("list").description("List the employees hired on this machine").action(run((cx) => listCommand(cx)));
   root.command("fire <id>").description("Delete a hired employee's agent (OpenClaw moves its workspace to the Trash); asks first").option("--yes", "do not ask (for scripts)").action(run((cx, id, o) => fireCommand(cx, id, { yes: o.yes })));
 }
@@ -1870,10 +1901,9 @@ async function chatCommand(base, args) {
   const lines = [];
   const cx = { ...base, out: (text3) => {
     lines.push(text3);
-  }, ask: null };
+  }, ask: null, chat: true, testCatalog: false };
   const [verb = "", ...rest] = args.trim().split(/\s+/);
   try {
-    announce(cx);
     if (verb === "search") await searchCommand(cx, rest.join(" "));
     else if (verb === "show") await showCommand(cx, rest[0] ?? "");
     else if (verb === "list") listCommand(cx);

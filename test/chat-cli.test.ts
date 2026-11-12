@@ -56,8 +56,8 @@ test("the terminal command is harnsy-hr with search, show, hire, update, list, f
   const w = await fresh(), failures: string[] = [], { program, commands } = recorder();
   registerCli(program, () => w.cx(), (text) => failures.push(text));
   assert.deepEqual([...commands.keys()], ["harnsy-hr", "harnsy-hr search", "harnsy-hr show", "harnsy-hr hire", "harnsy-hr update", "harnsy-hr list", "harnsy-hr fire"]);
-  assert.deepEqual(commands.get("harnsy-hr hire")!.options, ["--yes"]);
-  assert.deepEqual(commands.get("harnsy-hr update")!.options, ["--yes", "--replace-edited"]);
+  assert.deepEqual(commands.get("harnsy-hr hire")!.options, ["--yes", "--test-catalog"]);
+  assert.deepEqual(commands.get("harnsy-hr update")!.options, ["--yes", "--replace-edited", "--test-catalog"]);
   assert.deepEqual(commands.get("harnsy-hr fire")!.options, ["--yes"]);
 
   await commands.get("harnsy-hr search")!.action!(["archivist", "shelves"], { limit: "1" }, {});

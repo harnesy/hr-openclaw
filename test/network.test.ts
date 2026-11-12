@@ -43,7 +43,10 @@ test("a hire over the network: only GETs to the catalog, one header of ours, not
   const { kit, dir } = await staff(), w = world(kit, dir), base = await serve(dir);
   seen.length = 0;
   const pub = `t1:${Buffer.from(kit.key.pub).toString("base64")}`;
-  await hireCommand(w.cx({ keys: [], source: undefined, env: { HARNSY_HR_FEED: base, HARNSY_HR_PUB: pub } }), "harnsy/sample-skills", { yes: true });
+  const cx = (testCatalog: boolean) => w.cx({ keys: [], source: undefined, env: { HARNSY_HR_FEED: base, HARNSY_HR_PUB: pub }, testCatalog });
+  assert.match(await refusal(hireCommand(cx(false), "harnsy/sample-skills", { yes: true })), /--test-catalog was not given/);
+  assert.equal(seen.length, 0, "without the word of the command line no request is made");
+  await hireCommand(cx(true), "harnsy/sample-skills", { yes: true });
   assert.ok(w.agents.has("sample-skills"));
   assert.deepEqual(seen.map((r) => `${r.method} ${r.url}`), ["GET /v1/feed.json", "GET /v1/feed.json.sig", "GET /packs/harnsy/sample-skills/1.2.0.harnsy"],
     "the feed names https://hr.harnsy.dev/…; the path of each url is fetched from the stand's address");

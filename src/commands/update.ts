@@ -56,11 +56,11 @@ function summary(id: string, from: string, to: string, p: Plan, replaceEdited: b
 }
 
 /** Asks about each file the person changed; gives the ones to replace. */
-async function chooseEdited(cx: Context, opts: UpdateOptions, edited: string[]): Promise<string[]> {
+async function chooseEdited(cx: Context, opts: UpdateOptions, edited: string[], warning: string): Promise<string[]> {
   if (opts.replaceEdited) return edited;
   const take: string[] = [];
   for (const rel of edited) {
-    if (!opts.yes && cx.ask && (await cx.ask(`${rel} was changed since the hire. Replace it with the new version?`))) take.push(rel);
+    if (!opts.yes && cx.ask && (await cx.ask(`${warning}${rel} was changed since the hire. Replace it with the new version?`))) take.push(rel);
   }
   return take;
 }
@@ -78,8 +78,8 @@ export async function updateCommand(cx: Context, id: string, opts: UpdateOptions
     return cx.out(`${id} ${to}: every file is current.`);
   }
   cx.out(summary(id, rec.version, to, p, opts.replaceEdited));
-  if (!(await confirm(cx, opts.yes, `Update ${id} in ${root}?`))) return cx.out("Nothing was changed.");
-  const take = await chooseEdited(cx, opts, p.edited);
+  if (!(await confirm(cx, opts.yes, `${h.warning}Update ${id} in ${root}?`))) return cx.out("Nothing was changed.");
+  const take = await chooseEdited(cx, opts, p.edited, h.warning);
   for (const rel of [...p.write, ...take]) replace(root, rel, files.get(rel)!);
   for (const rel of p.drop) remove(root, rel);
   writeRecord(root, { ...recordFor(h, rec.agent), files: keepSums(rec, files, p.edited.filter((r) => !take.includes(r))) });

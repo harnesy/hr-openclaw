@@ -4,7 +4,7 @@
 import { isID } from "./catalog/grammar.ts";
 import { failureText } from "./cli.ts";
 import { searchCommand, showCommand } from "./commands/browse.ts";
-import { announce, type Context } from "./commands/context.ts";
+import type { Context } from "./commands/context.ts";
 import { listCommand } from "./commands/staff.ts";
 import { cli } from "./commands/text.ts";
 import { PLUGIN_ID } from "./version.ts";
@@ -16,13 +16,15 @@ const HELP = [`/${PLUGIN_ID} search <words>   find employees by a role, a skill 
   `/${PLUGIN_ID} list               who is hired on this machine`,
   `Hiring, updating and firing are done in a terminal: ${cli("hire <id>")}`].join("\n");
 
-/** Answers one chat command. The answer is text; nothing is asked and no file of a workspace is written. */
+/**
+ * Answers one chat command. The answer is text; nothing is asked and no file of a workspace is written. A chat has no
+ * command line, so it never reads a test catalog: with one set in the environment, search and show refuse.
+ */
 export async function chatCommand(base: Omit<Context, "out" | "ask">, args: string): Promise<string> {
   const lines: string[] = [];
-  const cx: Context = { ...base, out: (text) => { lines.push(text); }, ask: null };
+  const cx: Context = { ...base, out: (text) => { lines.push(text); }, ask: null, chat: true, testCatalog: false };
   const [verb = "", ...rest] = args.trim().split(/\s+/);
   try {
-    announce(cx);
     if (verb === "search") await searchCommand(cx, rest.join(" "));
     else if (verb === "show") await showCommand(cx, rest[0] ?? "");
     else if (verb === "list") listCommand(cx);

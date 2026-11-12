@@ -62,7 +62,7 @@ export async function hireCommand(cx: Context, id: string, opts: HireOptions = {
   const name = h.tree.name, root = join(cx.stateDir, workspaceFolder(name));
   await preflight(cx, name, root);
   cx.out(describe(h, root));
-  if (!(await confirm(cx, opts.yes, `Hire ${id} as the OpenClaw agent «${name}»?`))) return cx.out("Nothing was written.");
+  if (!(await confirm(cx, opts.yes, `${h.warning}Hire ${id} as the OpenClaw agent «${name}»?`))) return cx.out("Nothing was written.");
   await preflight(cx, name, root); // the answer may have taken a while
   const written = writeAll(h, root, name);
   let agent: string;

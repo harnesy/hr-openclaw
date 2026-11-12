@@ -124,10 +124,30 @@ Installing through ClawHub's CLI is subject to ClawHub's own telemetry.
 
 ### Test catalogs
 
-For stands only, two environment variables: `HARNSY_HR_FEED` (an address that replaces `https://hr.harnsy.dev` for
-fetching; the feed must still name `hr.harnsy.dev`) and `HARNSY_HR_PUB` (`<kid>:<base64 of the raw Ed25519 public
-key>`, the only key trusted while it is set). When either is set, every command first prints one line saying a test
-catalog is in use.
+For stands only. A test catalog is read when two things agree:
+
+- the environment names it: `HARNSY_HR_FEED` (an address that replaces `https://hr.harnsy.dev` for fetching; the feed
+  must still name `hr.harnsy.dev`), `HARNSY_HR_PUB` (`<kid>:<base64 of the raw Ed25519 public key>`, the only key
+  trusted while it is set), or both;
+- the command line says `--test-catalog` (`search`, `show`, `hire` and `update` take it).
+
+The flag is there because OpenClaw fills the environment from files: a `.env` in the folder a command is run from,
+`~/.openclaw/.env`, the `env` block of its config. A folder someone else prepared (a cloned repository, a download, the
+workspace of a hired agent) could name a catalog and a key of its own that way. A word of the command line cannot come
+from a file.
+
+- A variable is set and `--test-catalog` is not given: the command refuses before anything is fetched or written, and
+  names the variable. Unset it to read `hr.harnsy.dev`.
+- `--test-catalog` is given and neither variable is set: refused.
+- In a chat a test catalog is never read. With a variable set, `/harnsy-hr search` and `/harnsy-hr show` refuse;
+  `/harnsy-hr list` reads no catalog and answers as ever.
+- Both agree: the command first prints one line saying that a test catalog is in use, with its address and key id, and
+  the question `hire` and `update` ask names the address and the key again and says that this is not `hr.harnsy.dev`.
+  `--yes` together with `--test-catalog` is allowed, because stands are scripted: both are words of the command line.
+- Plain `http` is taken only for this machine itself (`127.0.0.1`, `[::1]`, `localhost`); any other address needs
+  `https`.
+- The feed number of a test catalog is kept apart in `state.json`, under `test:<key id>`: a test run never reads or
+  writes the number kept for the real catalog's key, so a stand cannot make the real catalog look old.
 
 ## Licences
 

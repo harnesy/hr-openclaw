@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
-import { chatCommand } from "../src/chat.ts";
 import { registerCli } from "../src/cli.ts";
 import { searchCommand, showCommand } from "../src/commands/browse.ts";
 import { hireCommand } from "../src/commands/hire.ts";
@@ -55,7 +54,7 @@ test("with no catalog key at all every command that reads the catalog refuses an
   assert.match(w.printed.at(-1)!, /Nobody is hired yet/, "list reads the disk only and still works");
 });
 
-test("a stand is named by two environment variables, and every command says first that a test catalog is in use", async () => {
+test("with --test-catalog a stand is named by two environment variables, and every command that reads it says so first", async () => {
   const { k, w } = stand(), pub = `t1:${Buffer.from(k.key.pub).toString("base64")}`;
   const bases: string[] = [], note = "A test catalog is in use (HARNSY_HR_FEED or HARNSY_HR_PUB is set): reading http://127.0.0.1:8800, trusting t1.";
   const cx = () => w.cx({ keys: [], env: { HARNSY_HR_FEED: "http://127.0.0.1:8800", HARNSY_HR_PUB: pub },
@@ -63,28 +62,31 @@ test("a stand is named by two environment variables, and every command says firs
   const { program, commands } = recorder();
   registerCli(program, cx, (text) => { w.printed.push(text); });
   const run = (verb: string, ...args: unknown[]) => commands.get(`harnsy-hr ${verb}`)!.action!(...args);
-  for (const [verb, args] of [["search", [["reviewer"], {}]], ["show", ["harnsy/reviewer"]], ["hire", ["harnsy/reviewer", { yes: true }]],
-    ["update", ["harnsy/reviewer", { yes: true }]], ["list", [{}]], ["fire", ["harnsy/reviewer", { yes: true }]]] as const) {
+  const flag = { testCatalog: true };
+  for (const [verb, args] of [["search", [["reviewer"], flag]], ["show", ["harnsy/reviewer", flag]], ["hire", ["harnsy/reviewer", { yes: true, ...flag }]],
+    ["update", ["harnsy/reviewer", { yes: true, ...flag }]]] as const) {
     w.printed.length = 0;
     await run(verb, ...args);
     assert.equal(w.printed[0], note, verb);
     assert.ok(w.printed.length > 1 && !w.printed[1]!.startsWith("harnsy-hr:"), `${verb}: ${w.printed[1]}`);
+    assert.ok(commands.get(`harnsy-hr ${verb}`)!.options.includes("--test-catalog"), verb);
   }
   assert.deepEqual([...new Set(bases)], ["http://127.0.0.1:8800"]);
-  for (const args of ["search reviewer", "list", "hire harnsy/reviewer"]) assert.ok((await chatCommand(cx(), args)).startsWith(note + "\n\n"), args);
-  const real = recorder();
-  registerCli(real.program, () => w.cx(), () => {});
-  w.printed.length = 0;
-  await real.commands.get("harnsy-hr list")!.action!({});
-  assert.ok(!w.printed.join("\n").includes("test catalog"), "the real catalog is not announced");
+  for (const [verb, args] of [["list", [{}]], ["fire", ["harnsy/reviewer", { yes: true }]]] as const) {
+    w.printed.length = 0;
+    await run(verb, ...args);
+    const said = w.printed.join("\n");
+    assert.ok(said !== "" && !said.includes("test catalog") && !said.startsWith("harnsy-hr:"), `${verb} reads no catalog and works as ever: ${said}`);
+    assert.ok(!commands.get(`harnsy-hr ${verb}`)!.options.includes("--test-catalog"), verb);
+  }
 
   assert.equal(catalogConfig({}, []).base, "https://hr.harnsy.dev");
-  assert.equal(catalogConfig({}, []).testNote, "");
-  assert.match(catalogConfig({ HARNSY_HR_FEED: "http://x" }, []).testNote, /trusting no key/);
-  assert.deepEqual(catalogConfig({ HARNSY_HR_PUB: pub }, [{ kid: "c1", pub: pub.slice(3) }]).keys.map((key) => key.kid), ["t1"],
+  assert.deepEqual([catalogConfig({}, []).testNote, catalogConfig({}, []).test], ["", false]);
+  assert.match(catalogConfig({ HARNSY_HR_FEED: "http://localhost:1" }, [], flag).testNote, /trusting no key/);
+  assert.deepEqual(catalogConfig({ HARNSY_HR_PUB: pub }, [{ kid: "c1", pub: pub.slice(3) }], flag).keys.map((key) => key.kid), ["t1"],
     "while a test key is set it is the only key trusted");
   for (const bad of ["t1", ":abc", "t1:not-a-key", "t1:" + Buffer.alloc(31).toString("base64")]) {
-    assert.throws(() => catalogConfig({ HARNSY_HR_PUB: bad }, []), /HARNSY_HR_PUB|catalog key/, bad);
+    assert.throws(() => catalogConfig({ HARNSY_HR_PUB: bad }, [], flag), /HARNSY_HR_PUB|catalog key/, bad);
   }
 });
 

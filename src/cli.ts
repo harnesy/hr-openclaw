@@ -2,7 +2,7 @@
 // Commander program; this file only names the commands and their flags and passes the words on.
 import { Refusal } from "./catalog/types.ts";
 import { searchCommand, showCommand } from "./commands/browse.ts";
-import { announce, type Context } from "./commands/context.ts";
+import type { Context } from "./commands/context.ts";
 import { hireCommand } from "./commands/hire.ts";
 import { fireCommand, listCommand } from "./commands/staff.ts";
 import { updateCommand } from "./commands/update.ts";
@@ -16,6 +16,8 @@ export interface Program {
   action(fn: (...args: any[]) => unknown): Program;
 }
 
+const TEST_CATALOG = ["--test-catalog", "read the test catalog that HARNSY_HR_FEED / HARNSY_HR_PUB name instead of hr.harnsy.dev (for stands)"] as const;
+
 export const CLI_DESCRIPTION = "Hire AI employees from the signed catalog hr.harnsy.dev as OpenClaw agents";
 
 /** What a failed command says: the refusal's own sentence, or a short line for a fault nobody planned. */
@@ -28,28 +30,33 @@ export function failureText(err: unknown): string {
 export function registerCli(program: Program, context: () => Context, fail: (text: string) => void): void {
   const run = (fn: (cx: Context, ...args: any[]) => unknown) => async (...args: any[]) => {
     try {
-      const cx = context();
-      announce(cx);
-      await fn(cx, ...args);
+      await fn(context(), ...args);
     } catch (err) {
       fail(failureText(err));
     }
   };
+  // The word that lets a command read a test catalog; the commands that read no catalog (list, fire) do not take it.
+  const stand = (cx: Context, o: { testCatalog?: boolean }): Context => ({ ...cx, testCatalog: o.testCatalog === true });
   const root = program.command(PLUGIN_ID).description(CLI_DESCRIPTION);
   root.command("search [words...]").description("Search the catalog by words (a role, a skill, a need); no words lists everyone")
     .option("--department <name>", "only this department, for example finance")
     .option("--limit <n>", "how many to show, at most 20 (10 when left out)")
-    .action(run((cx, words: string[], o: { department?: string; limit?: string }) =>
-      searchCommand(cx, (words ?? []).join(" "), { department: o.department, limit: o.limit === undefined ? undefined : Number(o.limit) })));
+    .option(...TEST_CATALOG)
+    .action(run((cx, words: string[], o: { department?: string; limit?: string; testCatalog?: boolean }) =>
+      searchCommand(stand(cx, o), (words ?? []).join(" "), { department: o.department, limit: o.limit === undefined ? undefined : Number(o.limit) })));
   root.command("show <id>").description("Show one employee: what it needs, the files a hire writes, its notice")
-    .action(run((cx, id: string) => showCommand(cx, id)));
+    .option(...TEST_CATALOG)
+    .action(run((cx, id: string, o: { testCatalog?: boolean }) => showCommand(stand(cx, o), id)));
   root.command("hire <id>").description("Hire an employee as an OpenClaw agent with a workspace of its own; shows everything first and asks")
     .option("--yes", "do not ask (for scripts)")
-    .action(run((cx, id: string, o: { yes?: boolean }) => hireCommand(cx, id, { yes: o.yes })));
+    .option(...TEST_CATALOG)
+    .action(run((cx, id: string, o: { yes?: boolean; testCatalog?: boolean }) => hireCommand(stand(cx, o), id, { yes: o.yes })));
   root.command("update <id>").description("Bring a hired employee to the catalog's current version; files you changed are asked about")
     .option("--yes", "do not ask; files you changed are kept")
     .option("--replace-edited", "also replace the files you changed")
-    .action(run((cx, id: string, o: { yes?: boolean; replaceEdited?: boolean }) => updateCommand(cx, id, { yes: o.yes, replaceEdited: o.replaceEdited })));
+    .option(...TEST_CATALOG)
+    .action(run((cx, id: string, o: { yes?: boolean; replaceEdited?: boolean; testCatalog?: boolean }) =>
+      updateCommand(stand(cx, o), id, { yes: o.yes, replaceEdited: o.replaceEdited })));
   root.command("list").description("List the employees hired on this machine").action(run((cx) => listCommand(cx)));
   root.command("fire <id>").description("Delete a hired employee's agent (OpenClaw moves its workspace to the Trash); asks first")
     .option("--yes", "do not ask (for scripts)")
