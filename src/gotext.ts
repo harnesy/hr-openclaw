@@ -42,7 +42,17 @@ export function cleanPath(p: string): string {
   return joined === "" ? "." : joined;
 }
 
-/** Text from the catalog made safe to print: control characters other than a new line and a tab are dropped. */
+// Characters a person does not see but a terminal or a chat acts on: DEL and the C1 controls (U+009B starts an escape
+// sequence), the line separators, and the Unicode format characters (category Cf: bidi overrides and isolates, zero
+// width characters, the soft hyphen, the byte-order mark, tags). The inside of a character class.
+export const HIDDEN = "\\u007f-\\u009f\\u2028\\u2029\\p{Cf}";
+const UNPRINTABLE = new RegExp(`[\\u0000-\\u0008\\u000b-\\u001f${HIDDEN}]`, "gu");
+
+/**
+ * Text from the catalog made safe to print to a terminal or a chat: control characters other than a new line and a
+ * tab are dropped, and so is every character that hides or reorders what is read. Only for what is printed: the files
+ * a hire writes keep the catalog's bytes.
+ */
 export function printable(s: string): string {
-  return s.replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u2028\u2029]/g, "");
+  return s.replace(UNPRINTABLE, "");
 }

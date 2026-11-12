@@ -1,6 +1,42 @@
 // src/index.ts
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 
+// src/gotext.ts
+var SPACE = "\\t\\n\\v\\f\\r \\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000";
+var SPACES = new RegExp(`[${SPACE}]+`, "u");
+var TRIM = new RegExp(`^[${SPACE}]+|[${SPACE}]+$`, "gu");
+function fields(s) {
+  return s.split(SPACES).filter((w) => w !== "");
+}
+function trimSpace(s) {
+  return s.replace(TRIM, "");
+}
+function byteLen(s) {
+  return Buffer.byteLength(s, "utf8");
+}
+function compareBytes(a, b) {
+  return Buffer.compare(Buffer.from(a, "utf8"), Buffer.from(b, "utf8"));
+}
+function cleanPath(p) {
+  if (p === "") return ".";
+  const rooted = p.startsWith("/");
+  const out = [];
+  for (const part of p.split("/")) {
+    if (part === "" || part === ".") continue;
+    if (part !== "..") out.push(part);
+    else if (out.length > 0 && out[out.length - 1] !== "..") out.pop();
+    else if (!rooted) out.push("..");
+  }
+  const joined = out.join("/");
+  if (rooted) return "/" + joined;
+  return joined === "" ? "." : joined;
+}
+var HIDDEN = "\\u007f-\\u009f\\u2028\\u2029\\p{Cf}";
+var UNPRINTABLE = new RegExp(`[\\u0000-\\u0008\\u000b-\\u001f${HIDDEN}]`, "gu");
+function printable(s) {
+  return s.replace(UNPRINTABLE, "");
+}
+
 // src/catalog/types.ts
 var MAX_FEED = 4 << 20;
 var MAX_BUNDLE = 8 << 20;
@@ -65,8 +101,12 @@ function isBundlePath(path) {
   if (parts.length === 3) return parts[2] === "SKILL.md" || parts[2] === "LICENSE";
   return parts.length === 4 && SKILL_FOLDERS.has(parts[2] ?? "") && isSkillFile(parts[3] ?? "");
 }
+var HIDDEN_CHAR = new RegExp(`[${HIDDEN}]`, "gu");
 function clip(s, max2 = 130) {
-  return JSON.stringify(s.length > max2 ? s.slice(0, max2) : s);
+  return JSON.stringify(s.length > max2 ? s.slice(0, max2) : s).replace(HIDDEN_CHAR, (c) => {
+    const hex = c.codePointAt(0).toString(16);
+    return hex.length > 4 ? `\\u{${hex}}` : `\\u${hex.padStart(4, "0")}`;
+  });
 }
 function checkName(id, version) {
   if (!isID(id)) throw new Refusal(`id ${clip(id)}: want <publisher>/<name> in lowercase latin letters, digits and -`);
@@ -75,40 +115,6 @@ function checkName(id, version) {
 
 // src/commands/browse.ts
 import { join as join3 } from "node:path";
-
-// src/gotext.ts
-var SPACE = "\\t\\n\\v\\f\\r \\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000";
-var SPACES = new RegExp(`[${SPACE}]+`, "u");
-var TRIM = new RegExp(`^[${SPACE}]+|[${SPACE}]+$`, "gu");
-function fields(s) {
-  return s.split(SPACES).filter((w) => w !== "");
-}
-function trimSpace(s) {
-  return s.replace(TRIM, "");
-}
-function byteLen(s) {
-  return Buffer.byteLength(s, "utf8");
-}
-function compareBytes(a, b) {
-  return Buffer.compare(Buffer.from(a, "utf8"), Buffer.from(b, "utf8"));
-}
-function cleanPath(p) {
-  if (p === "") return ".";
-  const rooted = p.startsWith("/");
-  const out = [];
-  for (const part of p.split("/")) {
-    if (part === "" || part === ".") continue;
-    if (part !== "..") out.push(part);
-    else if (out.length > 0 && out[out.length - 1] !== "..") out.pop();
-    else if (!rooted) out.push("..");
-  }
-  const joined = out.join("/");
-  if (rooted) return "/" + joined;
-  return joined === "" ? "." : joined;
-}
-function printable(s) {
-  return s.replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u2028\u2029]/g, "");
-}
 
 // src/render/names.ts
 function title(e) {
@@ -1915,7 +1921,10 @@ async function chatCommand(base, args) {
   } catch (err2) {
     lines.push(failureText(err2));
   }
-  return lines.join("\n\n");
+  return fenced(lines.join("\n\n"));
+}
+function fenced(text3) {
+  return "```\n" + text3.replace(/`/g, "'") + "\n```";
 }
 
 // src/host.ts

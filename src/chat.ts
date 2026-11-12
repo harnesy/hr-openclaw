@@ -36,5 +36,14 @@ export async function chatCommand(base: Omit<Context, "out" | "ask">, args: stri
   } catch (err) {
     lines.push(failureText(err));
   }
-  return lines.join("\n\n");
+  return fenced(lines.join("\n\n"));
+}
+
+/**
+ * OpenClaw sends a command's answer as Markdown, and most of an answer is a publisher's text: a link, a mention or
+ * markup in it would be posted as the bot's own. So every answer goes out as one code block, where nothing is markup;
+ * a backtick in it becomes an apostrophe, so no text can close the block.
+ */
+function fenced(text: string): string {
+  return "```\n" + text.replace(/`/g, "'") + "\n```";
 }

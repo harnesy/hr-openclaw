@@ -5,7 +5,6 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
-import { chatCommand } from "../src/chat.ts";
 import { registerCli } from "../src/cli.ts";
 import { searchCommand, showCommand } from "../src/commands/browse.ts";
 import type { Context } from "../src/commands/context.ts";
@@ -16,7 +15,7 @@ import { seenSeq, stateFile } from "../src/state.ts";
 import { Kit } from "./kit/kit.ts";
 import { recorder } from "./kit/program.ts";
 import { refusal, sample, tempDir } from "./kit/sample.ts";
-import { answer, world } from "./kit/world.ts";
+import { answer, chat, world } from "./kit/world.ts";
 
 const FEED = "http://127.0.0.1:8800";
 const NO_FLAG = (names: string, verb: string, noun: string) => `${names} ${verb} set, but --test-catalog was not given: a test catalog is read only ` +
@@ -79,7 +78,7 @@ test("a chat never reads a test catalog: with a variable set search and show ref
   const m = machine(), { w } = m;
   await hireCommand(w.cx(), "harnsy/reviewer", { yes: true });
   const state = readFileSync(stateFile(w.stateDir)), files = w.snapshot();
-  const said = (env: Context["env"], args: string, over: Partial<Context> = {}) => chatCommand(w.cx({ env, source: m.counting, ...over }), args);
+  const said = (env: Context["env"], args: string, over: Partial<Context> = {}) => chat(w.cx({ env, source: m.counting, ...over }), args);
   const both = { HARNSY_HR_FEED: FEED, HARNSY_HR_PUB: m.pub };
   for (const args of ["search reviewer", "show harnsy/reviewer", "search --test-catalog reviewer", "show harnsy/reviewer --test-catalog"]) {
     assert.equal(await said(both, args), "harnsy-hr: A test catalog is set in this machine's environment (HARNSY_HR_FEED, HARNSY_HR_PUB). " +

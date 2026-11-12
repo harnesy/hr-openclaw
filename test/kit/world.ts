@@ -1,7 +1,9 @@
 // A person's machine for a test: OpenClaw's state directory with the default agent's workspace in it, an OpenClaw
 // that behaves as v2026.11.3 was seen to behave (see fakeOpenClaw), and a context that records what a command prints.
+import assert from "node:assert/strict";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { chatCommand } from "../../src/chat.ts";
 import type { Context } from "../../src/commands/context.ts";
 import { dirSource } from "../../src/catalog/source.ts";
 import type { Runner, RunResult } from "../../src/openclaw.ts";
@@ -85,3 +87,10 @@ export const answer = (w: World, yes: boolean | ((question: string) => boolean))
   w.questions.push(question);
   return typeof yes === "function" ? yes(question) : yes;
 };
+
+/** What a chat command answers: the text inside the one code block every answer is sent as. */
+export async function chat(cx: Context, args: string): Promise<string> {
+  const said = await chatCommand(cx, args);
+  assert.ok(said.startsWith("```\n") && said.endsWith("\n```"), `a chat answer is one code block: ${said}`);
+  return said.slice(4, -4);
+}

@@ -1,6 +1,7 @@
 // The grammar of the catalog's publisher for ids, versions and the files a bundle may carry. A signed release is
 // checked against it before any of its names becomes a path, a command argument or a line of a file: signed is not
 // the same as well-formed.
+import { HIDDEN } from "../gotext.ts";
 import { Refusal } from "./types.ts";
 
 const PART = /^[a-z0-9][a-z0-9-]{0,63}$/;
@@ -53,9 +54,17 @@ export function isBundlePath(path: string): boolean {
   return parts.length === 4 && SKILL_FOLDERS.has(parts[2] ?? "") && isSkillFile(parts[3] ?? "");
 }
 
-/** A value for an error message: quoted, cut short, control characters shown as escapes. It may be anything. */
+const HIDDEN_CHAR = new RegExp(`[${HIDDEN}]`, "gu");
+
+/**
+ * A value for an error message: quoted, cut short, and every character a terminal or a chat would act on instead of
+ * showing (control and format characters) written as an escape. It may be anything.
+ */
 export function clip(s: string, max = 130): string {
-  return JSON.stringify(s.length > max ? s.slice(0, max) : s);
+  return JSON.stringify(s.length > max ? s.slice(0, max) : s).replace(HIDDEN_CHAR, (c) => {
+    const hex = c.codePointAt(0)!.toString(16);
+    return hex.length > 4 ? `\\u{${hex}}` : `\\u${hex.padStart(4, "0")}`;
+  });
 }
 
 /** Refuses an id or a version outside the grammar. */
