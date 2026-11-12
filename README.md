@@ -50,8 +50,10 @@ An id is `<publisher>/<name>`, for example `harnsy/accountant`.
 
 In a chat, `/harnsy-hr search <words>`, `/harnsy-hr show <id>` and `/harnsy-hr list` answer with text. `hire`,
 `update` and `fire` are not run from a chat: they write files and wait for your yes, so the chat command answers with
-the terminal command to type. (OpenClaw registers the chat command, and this repository's tests run it; it has not
-been tried in a live channel yet.)
+the terminal command to type. A chat command runs inside OpenClaw's Gateway process: `search` and `show` fetch the feed
+from there and, like the terminal commands, write its number to `harnsy-hr/state.json`; they write nothing else.
+(OpenClaw registers the chat command, and this repository's tests run it; it has not been tried in a live channel
+yet.)
 
 What the commands print of the catalog's text (a card, what an employee needs, a notice) is printed without control
 characters and without the characters that hide or reorder text (zero-width characters, direction overrides and the
@@ -90,6 +92,12 @@ carries the employee's name.
 - `update` replaces only files that are still as the plugin wrote them. A file you changed is asked about, one by
   one, and kept unless you say yes (`--yes` keeps them, `--replace-edited` replaces them). `NOTICE.md` is always
   brought up to date.
+- `.harnsy/hire.json` is how `update` tells a file you changed from one it wrote. Whoever can write the workspace,
+  the agent included, can edit that record: it guards your edits against the plugin's own mistakes, not against
+  someone who rewrites the record.
+- Before each write the plugin checks that no symbolic link stands on the way to the file. The check is made before
+  the write, not in one step with it: a program that works in the workspace at that very moment could put a link
+  there in between.
 - The hired agent uses the model your OpenClaw is set up with. Talking to it (`openclaw agent --agent <name> …`) is
   OpenClaw's own command; it needs a model and was not part of this repository's tests.
 
@@ -111,8 +119,8 @@ Before anything is written, in this order; any failure stops with the reason and
    and every listed file's SHA-256 must match.
 7. The catalog's signature over the manifest (`signatures/catalog.jws`: EdDSA, the same key, bound to the catalog's
    host, the employee's id and version, and the manifest's hash).
-8. Every path about to be written is checked once more to lie inside the employee's own workspace folder, and the
-   plugin does not read or write through symbolic links.
+8. Every path about to be written is checked once more to lie inside the employee's own workspace folder, with no
+   symbolic link on the way to it at the moment of the check (see «What a hire writes» for what that does not cover).
 
 OpenClaw's `openclaw skills verify` covers ClawHub skills only and does not apply here; the checks above are the
 check. A signature says the files are the ones the catalog published. It does not make an employee's text or scripts
