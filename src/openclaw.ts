@@ -71,12 +71,16 @@ export async function listAgents(run: Runner): Promise<Agent[]> {
   });
 }
 
-/** `openclaw agents add <name> --workspace <dir> --non-interactive`; gives the id OpenClaw made of the name. */
+/**
+ * `openclaw agents add <name> --workspace <dir> --non-interactive`; gives the id OpenClaw made of the name. An answer
+ * that is not an agent id is not taken: the name asked for stands, so what is recorded and later handed back to
+ * OpenClaw is always an id.
+ */
 export async function addAgent(run: Runner, name: string, workspace: string): Promise<string> {
   const r = await run(["agents", "add", name, "--workspace", workspace, "--non-interactive", "--json"]);
   if (r.code !== 0) throw new Refusal(`OpenClaw did not add the agent (${said(r)})`);
   const id = (json(r.stdout) as { agentId?: unknown } | undefined)?.agentId;
-  return typeof id === "string" && id !== "" ? id : name;
+  return typeof id === "string" && isAgentID(id) ? id : name;
 }
 
 /** `openclaw agents set-identity --agent <id> --from-identity`: OpenClaw reads the name and the sign from IDENTITY.md. */

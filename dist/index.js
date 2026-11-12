@@ -1493,7 +1493,7 @@ async function addAgent(run, name, workspace) {
   const r = await run(["agents", "add", name, "--workspace", workspace, "--non-interactive", "--json"]);
   if (r.code !== 0) throw new Refusal(`OpenClaw did not add the agent (${said(r)})`);
   const id = json(r.stdout)?.agentId;
-  return typeof id === "string" && id !== "" ? id : name;
+  return typeof id === "string" && isAgentID(id) ? id : name;
 }
 async function setIdentity(run, id) {
   return (await run(["agents", "set-identity", "--agent", id, "--from-identity", "--json"])).code === 0;

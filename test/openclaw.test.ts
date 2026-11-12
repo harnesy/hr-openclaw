@@ -44,6 +44,12 @@ test("every OpenClaw command is an argument array: a name is one argument whatev
   ]);
 });
 
+test("an answer to agents add that is not an agent id is not taken: the name asked for stands", async () => {
+  for (const bad of [`"--force"`, `"../x"`, `"a b"`, `"-x"`, `"x\\n"`, `"${"a".repeat(65)}"`, `""`, "7", "null"]) {
+    assert.equal(await addAgent(answers({ stdout: `{"agentId": ${bad}}` }), "accountant", "/w"), "accountant", `agentId ${bad}`);
+  }
+});
+
 test("the runner starts the openclaw program that is running, without a shell", async () => {
   const dir = tempDir(), cli = join(dir, "fake openclaw.mjs");
   writeFileSync(cli, `console.log(JSON.stringify(process.argv.slice(2))); console.error("to stderr"); process.exit(process.argv.includes("fail") ? 4 : 0);`);

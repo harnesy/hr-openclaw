@@ -68,6 +68,19 @@ test("a feed that names no page for its employees, as the live catalog's: the pa
   assert.match(w.printed[0]!, /^  Page: https:\/\/hr\.harnsy\.dev\/e\/harnsy\/sample-plain$/m);
 });
 
+test("OpenClaw answers agents add with something that is not an agent id: it is neither handed back to OpenClaw nor recorded", async () => {
+  const w = await fresh(), cx = w.cx(), run = cx.openclaw;
+  cx.openclaw = async (args) => {
+    const r = await run(args);
+    return args[1] === "add" ? { ...r, stdout: JSON.stringify({ agentId: "--force" }) } : r;
+  };
+  await hireCommand(cx, "harnsy/sample-skills", { yes: true });
+  assert.deepEqual(w.calls.filter((c) => c[1] === "set-identity"), [["agents", "set-identity", "--agent", "sample-skills", "--from-identity", "--json"]]);
+  const rec = JSON.parse(readFileSync(join(w.stateDir, "workspace-sample-skills", ".harnsy", "hire.json"), "utf8"));
+  assert.equal(rec.agent, "sample-skills");
+  assert.ok(!w.printed.join("\n").includes("--force"));
+});
+
 test("hire without a person and without --yes is refused; nothing is written", async () => {
   const w = await fresh(), before = w.snapshot();
   let fetched = 0;
