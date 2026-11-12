@@ -29,6 +29,10 @@ whether to install from this source, then, after it has cloned the repository, w
 declares (one terminal command and one chat command). In a script, or with nobody to answer, add
 `--force --accept-capabilities`: without them it cancels and installs nothing.
 
+The second question lists «Prompt injection: allowed». That is OpenClaw's default for every plugin that is not its
+own, a setting on your side (`plugins.entries.harnsy-hr.hooks.allowPromptInjection` in your `openclaw.json`), not
+something this plugin asks for: it registers no hooks and adds nothing to a prompt.
+
 Nothing is built or downloaded at install: the built plugin is in `dist/`, and it has no dependencies to install.
 OpenClaw still prints «Installing plugin dependencies with npm…»; all it leaves is a link to OpenClaw itself.
 `openclaw plugins inspect harnsy-hr --runtime --json` shows what OpenClaw loaded.
