@@ -76,7 +76,10 @@ test("update --yes never replaces a file the person changed; --replace-edited do
   await updateCommand(w.cx(), ID, { yes: true });
   assert.equal(read(root, "AGENTS.md"), "# My rules\n");
   assert.equal(existsSync(join(root, "docs", "persona-casebook.md")), false, "a file the person removed is not put back unasked");
+  assert.match(w.printed.find((t) => t.includes("AGENTS.md"))!, /each is asked about; kept unless you say yes\):\n  AGENTS\.md/);
+  w.printed.length = 0;
   await updateCommand(w.cx(), ID, { yes: true, replaceEdited: true });
+  assert.match(w.printed[0]!, /replaced as you asked \(--replace-edited\):\n  AGENTS\.md\n  docs\/persona-casebook\.md/);
   assert.match(read(root, "AGENTS.md"), /Reviewer 1\.1\.0 by harnsy/);
   assert.equal(read(root, "docs/persona-casebook.md"), "### C1. A race\n");
 });

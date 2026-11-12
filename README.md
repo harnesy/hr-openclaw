@@ -45,7 +45,7 @@ In a terminal:
 | `openclaw harnsy-hr hire <id>` | Shows the card, what the employee needs, every file and the full notice, then asks. After a yes it writes the files and adds the agent. `--yes` for scripts. |
 | `openclaw harnsy-hr update <id>` | Fetches and verifies the employee again and brings the files this plugin wrote to the current version. `--yes`, `--replace-edited`. |
 | `openclaw harnsy-hr list` | The employees hired on this machine. Reads the disk only. |
-| `openclaw harnsy-hr fire <id>` | After a yes, has OpenClaw delete the agent (`openclaw agents delete`: the agent and its workspace folder go; OpenClaw's documentation says they are moved to the Trash). Only an agent this plugin hired. `--yes` for scripts. |
+| `openclaw harnsy-hr fire <id>` | After a yes, has OpenClaw delete the agent (`openclaw agents delete`: OpenClaw removes the agent and moves its workspace to the Trash). Only an agent this plugin hired. `--yes` for scripts. |
 
 An id is `<publisher>/<name>`, for example `harnsy/accountant`.
 

@@ -1785,11 +1785,11 @@ function plan(root, rec, files) {
   }
   return p;
 }
-function summary(id, from, to, p) {
+function summary(id, from, to, p, replaceEdited) {
   const lines = [`${id}: ${from === to ? `version ${to}` : `${from} → ${to}`}`];
   const list2 = (title2, rels) => rels.length > 0 && lines.push(title2, ...rels.map((r) => `  ${r}`));
   list2("Written anew:", p.write);
-  list2("Changed by you since the hire (each is asked about; kept unless you say yes):", p.edited);
+  list2(replaceEdited ? "Changed by you since the hire, replaced as you asked (--replace-edited):" : "Changed by you since the hire (each is asked about; kept unless you say yes):", p.edited);
   list2("No longer part of the employee, removed:", p.drop);
   list2("No longer part of the employee, but changed by you: kept as your own files:", p.left);
   return lines.join("\n");
@@ -1813,7 +1813,7 @@ async function updateCommand(cx, id, opts = {}) {
     writeRecord(root, { ...recordFor(h, rec.agent), files: keepSums(rec, files, []) });
     return cx.out(`${id} ${to}: every file is current.`);
   }
-  cx.out(summary(id, rec.version, to, p));
+  cx.out(summary(id, rec.version, to, p, opts.replaceEdited));
   if (!await confirm(cx, opts.yes, `Update ${id} in ${root}?`)) return cx.out("Nothing was changed.");
   const take = await chooseEdited(cx, opts, p.edited);
   for (const rel of [...p.write, ...take]) replace(root, rel, files.get(rel));
