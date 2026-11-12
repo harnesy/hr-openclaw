@@ -1,0 +1,52 @@
+{
+  "name": "hr-openclaw",
+  "version": "0.1.0",
+  "description": "OpenClaw plugin: hire an employee from the signed catalog hr.harnsy.dev as an agent with its own workspace",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/harnesy/hr-openclaw.git"
+  },
+  "files": [
+    "dist",
+    "openclaw.plugin.json",
+    "LICENSE",
+    "NOTICE",
+    "THIRD_PARTY_LICENSES",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "tsc --noEmit && node --test \"test/**/*.test.ts\""
+  },
+  "openclaw": {
+    "extensions": [
+      "./dist/index.js"
+    ],
+    "compat": {
+      "pluginApi": ">=2026.11.3",
+      "minGatewayVersion": "2026.11.3"
+    },
+    "build": {
+      "openclawVersion": "2026.11.3",
+      "pluginSdkVersion": "2026.11.3"
+    }
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.11.3"
+  },
+  "peerDependenciesMeta": {
+    "openclaw": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "esbuild": "0.28.2",
+    "fflate": "0.8.3",
+    "typescript": "7.0.2"
+  }
+}
