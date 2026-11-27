@@ -1,9 +1,8 @@
 {
   "name": "hr-openclaw",
-  "version": "0.1.0",
-  "description": "OpenClaw plugin: hire an employee from the signed catalog hr.harnsy.dev as an agent with its own workspace",
+  "version": "0.1.1",
+  "description": "Hire AI employees from hr.harnsy.dev, a signed catalog of 140+ roles, as OpenClaw agents with their own workspaces.",
   "type": "module",
-  "private": true,
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -11,6 +10,7 @@
   },
   "files": [
     "dist",
+    "assets",
     "openclaw.plugin.json",
     "LICENSE",
     "NOTICE",

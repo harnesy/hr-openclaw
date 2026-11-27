@@ -1007,7 +1007,7 @@ import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 // src/version.ts
-var VERSION = "0.1.0";
+var VERSION = "0.1.1";
 var PLUGIN_ID = "harnsy-hr";
 var USER_AGENT = `hr-openclaw/${VERSION}`;
 

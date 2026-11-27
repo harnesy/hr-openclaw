@@ -20,10 +20,10 @@ under it is refused, and nothing is written.
 You need OpenClaw 2026.11.3 or later, set up with a model, and `git` on the machine.
 
 ```
-openclaw plugins install git:github.com/harnesy/hr-openclaw@v0.1.0
+openclaw plugins install git:github.com/harnesy/hr-openclaw@v0.1.1
 ```
 
-`@v0.1.0` is the release. Without `@…` OpenClaw installs the current `main`; a full commit after `@` works too. The
+`@v0.1.1` is the release. Without `@…` OpenClaw installs the current `main`; a full commit after `@` works too. The
 source is spelled `git:github.com/…`: a full `https://` address is refused («URLs are not allowed»).
 
 OpenClaw warns that a source outside ClawHub is not reviewed and asks twice, each time with no as the default: first
