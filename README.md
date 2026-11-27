@@ -3,6 +3,8 @@
 A plugin for [OpenClaw](https://openclaw.ai) that hires an employee from [hr.harnsy.dev](https://hr.harnsy.dev), the
 catalog of AI employees, as an OpenClaw agent with a workspace of its own.
 
+Which way fits you (OpenClaw, Hermes Agent or any MCP client): [Hire an AI employee in OpenClaw, Hermes Agent or an MCP client](https://harnsy.dev/hire-ai-employees-openclaw-hermes-mcp).
+
 An employee is a role with a character: who it is, how it decides and speaks, its job, and the skills it works with.
 `hire` downloads the employee from the catalog's signed feed, checks the signature on your machine, shows you what it
 is about to write, asks, and only then writes the files and adds the agent. Your own agent and its workspace are not
